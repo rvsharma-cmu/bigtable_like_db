@@ -55,6 +55,7 @@ if __name__ == "__main__":
     server_class = HTTPServer
 
     httpd = HTTPServer(server_address, handler_class)
+    handler_class.do_POST(server_address)
     print("sample server running...")
 
     try:
