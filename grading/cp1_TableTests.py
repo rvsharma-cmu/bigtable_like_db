@@ -1,9 +1,10 @@
 import requests, unittest, json
 from MySupport import MySupport
 
+
 class TableTests(unittest.TestCase):
-    HOSTNAME = "host"
-    PORT = 80
+    HOSTNAME = "localhost"
+    PORT = 5000
 
     def suite():
         suite = unittest.TestSuite()
@@ -17,32 +18,33 @@ class TableTests(unittest.TestCase):
         return suite
 
     def test_no_tables(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
 
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
 
-        json = response.json()
+        jso = response.json()
         expected = {"tables": []}
-        self.assertEqual(json, expected)
+        self.assertEqual(jso, expected)
+        print("TEST_NO_TABLES PASSED!!!!!!!!!")
 
     def test_create(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
 
         table_dict = {
-                "name": "table1",
-                "column_families": [
-                    {
-                        "column_family_key": "key1",
-                        "columns": ["column_key1", "column_key2"]
-                    },
-                    {
-                        "column_family_key": "key2",
-                        "columns": ["column_key3", "column_key4"]
-                    }
-                ]
-            }
+            "name": "table1",
+            "column_families": [
+                {
+                    "column_family_key": "key1",
+                    "columns": ["column_key1", "column_key2"]
+                },
+                {
+                    "column_family_key": "key2",
+                    "columns": ["column_key3", "column_key4"]
+                }
+            ]
+        }
 
         # create - success
         response = requests.post(url, json=table_dict)
@@ -65,20 +67,20 @@ class TableTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
 
-
     def test_list_with_content(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
         expected = {"tables": ["table1", "table2"]}
 
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
+        print ("PAAASSSSSTSSSSEDTTETDTETDALFEPGBWIOEGBWEIPGBPBWIEGPVWEBGPIBWEGVPIEWNGP")
 
     def test_delete(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
-        url_delete =  url + "/table1"
-        url_delete_nope =  url + "/tablenope"
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url_delete = url + "/table1"
+        url_delete_nope = url + "/tablenope"
         expected_after = {"tables": ["table2"]}
 
         # remove - success
@@ -98,23 +100,23 @@ class TableTests(unittest.TestCase):
         self.assertEqual(response.json(), expected_after)
 
     def test_getinfo(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
-        url_table1 =  url + "/table1" # no longer exists
-        url_table2 =  url + "/table2"
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url_table1 = url + "/table1"  # no longer exists
+        url_table2 = url + "/table2"
 
         expected = {
-                "name": "table2",
-                "column_families": [
-                    {
-                        "column_family_key": "key1",
-                        "columns": ["column_key1", "column_key2"]
-                    },
-                    {
-                        "column_family_key": "key2",
-                        "columns": ["column_key3", "column_key4"]
-                    }
-                ]
-            }
+            "name": "table2",
+            "column_families": [
+                {
+                    "column_family_key": "key1",
+                    "columns": ["column_key1", "column_key2"]
+                },
+                {
+                    "column_family_key": "key2",
+                    "columns": ["column_key3", "column_key4"]
+                }
+            ]
+        }
 
         # getinfo - success
         response = requests.get(url_table2)
@@ -128,8 +130,8 @@ class TableTests(unittest.TestCase):
         self.assertFalse(response.content)
 
     def test_cleanup(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
-        url_delete =  url + "/table2"
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url_delete = url + "/table2"
         expected_after = {"tables": []}
 
         # remove - success

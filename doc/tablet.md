@@ -51,7 +51,7 @@ Create a new table.
     "name": "table1",
     "column_families": [
         {
-            "column_family_key": "key1",
+            "column_fa  mily_key": "key1",
             "columns": ["column_key1", "column_key2"]
         }, 
         {

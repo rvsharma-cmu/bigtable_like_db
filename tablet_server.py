@@ -22,53 +22,77 @@ books = [
      'first_sentence': 'to wound the autumnal city.',
      'published': '1975'}
 ]
+'tablet to server name mapping'
 tablet_serv_name_mapping = dict()
+'the list of tables in this tablet'
 tables_list = list()
-persist_storage = '/Users/raghavs/14848/starter/persist/'
+'path of persistent storage'
+persistant_storage = '/Users/raghavs/14848/starter/persist/'
+
+"""
+    Method that appends a table name to the 
+    list of tables for this server
+"""
 
 
 def create_table_self(table_name):
-    result = dict()
-    path = persist_storage + table_name + "_meta_data.txt"
+    path = persistant_storage + table_name + "_meta_data.mdt"
     file_desc = open(path, 'w')
     file_desc.write("Table:" + table_name + "\n")
     file_desc.close()
 
-    write_ahead_log = persist_storage + table_name + ".wal"
-    file_desc = open(path, 'w')
+    write_ahead_log = persistant_storage + table_name + ".wal"
+    file_desc = open(write_ahead_log, 'w')
     file_desc.write("Table:" + table_name + "\n")
     file_desc.close()
-    # result['success'] = 1
-    # result['message'] = "Table Created"
-    # response = jsonify()
-    # response
-    # response.status_code = 200
-    # response.content = 0
-    # resp = make_response(render_template('error.html'), 404)
-    # resp.headers['X-Something'] = 'A value'
+    tables_list.append(table_name)
     return Response(status=200)
+
+
+"""
+    API to create a table and return appropriate response
+    :return 400 status if cannot parse json 
+    :return 409 if the table already exists 
+    :return 200 if successfully created table 
+"""
 
 
 @tablet_server.route('/api/tables', methods=['POST'])
 def create_table():
     # create a table with name
-    result = dict()
     table_info = request.get_json()
+    if table_info is None:
+        return Response(status=400)
     for server_name in tables_list:
-        if table_info['name'] == tables_list:
-            # result['message'] = "Failure - Table exists."
-            # response = jsonify()
-            # response.status_code = 409
+        print(server_name)
+        if table_info['name'] == server_name:
             return Response(status=409)
 
-    if not tables_list:
+    if table_info['name'] not in tables_list:
         response = create_table_self(table_info['name'])
         return response
 
 
-@tablet_server.route('/api/tables/', methods=['GET'])
-def api_all():
-    return jsonify(books)
+"""
+    List all tables that are present on this tablet
+    :return 200 and content with the table info 
+    : return 200 with empty content if not tables are defined 
+"""
+
+
+@tablet_server.route('/api/tables', methods=['GET'])
+def list_tables():
+    response = dict()
+    table_names = list()
+    output = dict()
+    global tables_list
+    for table_name in tables_list:
+        table_names.append(table_name)
+    response["tables"] = table_names
+    output = jsonify(response)
+    print(output)
+    output.status_code = 200
+    return output
 
 
 @tablet_server.route('/api/v1/resources/books', methods=['GET'])

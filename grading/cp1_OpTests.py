@@ -2,9 +2,10 @@ import requests, unittest, json
 import time
 from MySupport import MySupport
 
+
 class OpTests(unittest.TestCase):
-    HOSTNAME = "host"
-    PORT = 80
+    HOSTNAME = "localhost"
+    PORT = 5000
 
     def suite():
         suite = unittest.TestSuite()
@@ -15,25 +16,25 @@ class OpTests(unittest.TestCase):
         suite.addTest(OpTests('test_garbage_collection'))
         suite.addTest(OpTests('test_teardown'))
         suite.addTest(OpTests('test_metadata'))
-        
+
         return suite
 
     def test_setup(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
 
         table_dict = {
-                "name": "table_basic",
-                "column_families": [
-                    {
-                        "column_family_key": "fam1",
-                        "columns": ["key1", "key2"]
-                    },
-                    {
-                        "column_family_key": "fam2",
-                        "columns": ["key3", "key4"]
-                    }
-                ]
-            }
+            "name": "table_basic",
+            "column_families": [
+                {
+                    "column_family_key": "fam1",
+                    "columns": ["key1", "key2"]
+                },
+                {
+                    "column_family_key": "fam2",
+                    "columns": ["key3", "key4"]
+                }
+            ]
+        }
 
         # create - success
         response = requests.post(url, json=table_dict)
@@ -54,9 +55,9 @@ class OpTests(unittest.TestCase):
         self.assertFalse(response.content)
 
     def test_teardown(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
-        url_delete =  url + "/table_basic"
-        url_gc =  url + "/table_gc"
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
+        url_delete = url + "/table_basic"
+        url_gc = url + "/table_gc"
 
         # remove - success
         response = requests.delete(url_delete)
@@ -68,10 +69,8 @@ class OpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
 
-
-
     def test_basic(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
         url_range = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cells")
         row_a_time = time.time()
         data = {
@@ -160,9 +159,9 @@ class OpTests(unittest.TestCase):
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
 
-    def test_basic_error(self): 
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
-        url_nope =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_nope/cell")
+    def test_basic_error(self):
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
+        url_nope = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_nope/cell")
         data = {
             "column_family": "famX",
             "column": "key1",
@@ -199,8 +198,8 @@ class OpTests(unittest.TestCase):
         self.assertFalse(response.content)
 
     def test_garbage_collection(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_gc/cell")
-        
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_gc/cell")
+
         data = {
             "column_family": "fam1",
             "column": "key1",
@@ -252,13 +251,12 @@ class OpTests(unittest.TestCase):
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_f"), False))
         self.assertFalse(next((item for item in received["data"] if item["value"] == "data_a"), False))
 
- 
     def test_metadata(self):
-        url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_metadata/cell")
+        url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_metadata/cell")
         url_range = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_metadata/cells")
-        url_memtable =  MySupport.url(self.HOSTNAME, self.PORT, "/api/memtable")
+        url_memtable = MySupport.url(self.HOSTNAME, self.PORT, "/api/memtable")
         url_delete = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/table_metadata")
-        
+
         data = {
             "column_family": "fam1",
             "column": "key1",
@@ -280,22 +278,22 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
 
         # insert twenty entries
-        for i in range(1,21):
+        for i in range(1, 21):
             data["row"] = "row_" + str(i)
             data["data"] = [{"value": str(i), "time": time.time()}]
             response = requests.post(url, json=data)
 
         # insert another ten entries
         for i in range(10):
-            data["row"] = "row_" + str(21+i)
-            if 21+i == 25:
+            data["row"] = "row_" + str(21 + i)
+            if 21 + i == 25:
                 row_25_time = time.time()
-                data["data"] = [{"value": str(21+i), "time": row_25_time}]
-            elif 21+i == 26:
-                row_26_time = time.time()            
-                data["data"] = [{"value": str(21+i), "time": row_26_time}]
+                data["data"] = [{"value": str(21 + i), "time": row_25_time}]
+            elif 21 + i == 26:
+                row_26_time = time.time()
+                data["data"] = [{"value": str(21 + i), "time": row_26_time}]
             else:
-                data["data"] = [{"value": str(21+i), "time": time.time()}]
+                data["data"] = [{"value": str(21 + i), "time": time.time()}]
             response = requests.post(url, json=data)
 
         # set memtable max to 5
