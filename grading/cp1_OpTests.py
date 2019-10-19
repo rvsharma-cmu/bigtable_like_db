@@ -39,6 +39,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("Success!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! AYYAYYYYAYAYYAYAYA")
 
         # create - success
         table_dict["name"] = "table_gc"
