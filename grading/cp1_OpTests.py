@@ -1,5 +1,6 @@
 import requests, unittest, json
 import time
+import pdb
 from MySupport import MySupport
 
 
@@ -68,6 +69,7 @@ class OpTests(unittest.TestCase):
         response = requests.delete(url_gc)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("TEST_TEARDOWN_PASSED!!!!!!!")
 
     def test_basic(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
@@ -100,6 +102,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("Insert single row worked !!")
 
         # insert single
         data["row"] = "sample_c"
@@ -109,7 +112,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-
+        print("Insert second single row worked !!")
         # insert single
         data["row"] = "sample_f"
         data["data"][0]["value"] = "data_f"
@@ -118,7 +121,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-
+        print("Insert third single row worked !!")
         # retrieve single
         response = requests.get(url, json=retrieve_single)
         expected = {
@@ -133,6 +136,7 @@ class OpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
+        print("Retrieve single cell worked!")
 
         # retrieve range
         response = requests.get(url_range, json=retrieve_range)
@@ -158,6 +162,7 @@ class OpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
+        print("YA BASIC !!!!!!!")
 
     def test_basic_error(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
@@ -181,21 +186,25 @@ class OpTests(unittest.TestCase):
         response = requests.post(url_nope)
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.content)
+        print("table nope does not exists passed!!!!")
 
         # retrieve - table does not exist 
         response = requests.get(url_nope)
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.content)
+        print("table nope does not exists passed AGAIN !!!!")
 
         # insert - colfam not exist
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.content)
+        print("column fam not exists passed!!")
 
         # retrive - col not exist
         response = requests.get(url, json=retrieve_single)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.content)
+        print("YA BASIC ERROR PASSSEEDDDDDDD!!!!!!!")
 
     def test_garbage_collection(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_gc/cell")
@@ -237,11 +246,11 @@ class OpTests(unittest.TestCase):
 
         data["data"][0]["value"] = "data_f"
         data["data"][0]["time"] = time.time()
+        print("response started")
         response = requests.post(url, json=data)
-
         response = requests.get(url, json=retrieve_single)
+        # pdb.set_trace()
         self.assertEqual(response.status_code, 200)
-
         received = response.json()
         self.assertEqual(received["row"], "sample_a")
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_b"), False))
@@ -250,6 +259,7 @@ class OpTests(unittest.TestCase):
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_e"), False))
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_f"), False))
         self.assertFalse(next((item for item in received["data"] if item["value"] == "data_a"), False))
+        print("GARBAGE COLLECTION PASSED  !!!!!!!!!!!!!!!!!!!!")
 
     def test_metadata(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_metadata/cell")
