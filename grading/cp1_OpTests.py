@@ -40,7 +40,6 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("Success!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! AYYAYYYYAYAYYAYAYA")
 
         # create - success
         table_dict["name"] = "table_gc"
@@ -53,6 +52,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("TEST_SETUP_PASSED!!!!!!!")
 
     def test_teardown(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
