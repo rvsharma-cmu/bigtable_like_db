@@ -3,11 +3,12 @@
 import flask
 from flask import request, jsonify, Response
 import json
+import sys
 import pdb
 
 tablet_server = flask.Flask(__name__)
 tablet_server.config["DEBUG"] = True
-
+tablet_server.config
 'tablet to server name mapping'
 tablet_serv_name_mapping = dict()
 'the list of tables in this tablet server'
@@ -26,7 +27,11 @@ mem_table_spill_counter = 0
 dictionary of rows against the counts of values inserted 
 """
 row_counter = dict()
+__name__ = 'main'
 
+if __name__ == 'main':
+    tablet_server.run(host=sys.argv[1], port=sys.argv[2], debug=True)
+# tablet_server.run()
 """
     Method that appends a table name to the 
     list of tables for this server
@@ -367,4 +372,3 @@ def set_mem_table_max_entries():
     return Response(status=200)
 
 
-tablet_server.run()

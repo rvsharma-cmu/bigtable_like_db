@@ -7,6 +7,7 @@ from cp2_MasterTests import MasterTests
 from cp2_SpecialTests import SpecialTests
 from cp2_BalancerTests import BalancerTests
 
+
 def checkpoint1(hostname, port):
     total = 0
 
@@ -138,5 +139,5 @@ if __name__ == "__main__":
         hostname = sys.argv[3]
         port = sys.argv[4]
         run_testcase(testcase, hostname, port)
-    else :
+    else:
         usage()
