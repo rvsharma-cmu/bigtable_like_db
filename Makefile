@@ -2,7 +2,7 @@ include hosts.mk
 # TABLET_CMD=source my_virtual_env/bin/activate; python sample_server.py
 # EDIT THIS
 MASTER_CMD=python3 master_server.py
-TABLET_CMD=source venv/bin/activate;python3 tablet_server.py
+TABLET_CMD=venv/bin/activate;python3 tablet_server.py
 # END EDIT REGION
 
 # if you require any compilation, fill in this section

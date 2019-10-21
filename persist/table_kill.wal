@@ -1,0 +1,2 @@
+Table:table_kill
+{"column_family": "fam1", "column": "key1", "row": "sample_a", "data": [{"value": "1", "time": 1571608136.076106}]}
