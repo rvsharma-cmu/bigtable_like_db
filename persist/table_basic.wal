@@ -1,2 +1,2 @@
 Table:table_basic
-{"column_family": "fam1", "column": "key1", "row": "sample_a", "data": [{"value": "data_a", "time": 1571612402.820534}]}{"column_family": "fam1", "column": "key1", "row": "sample_c", "data": [{"value": "data_c", "time": 1571612402.830894}]}{"column_family": "fam1", "column": "key1", "row": "sample_f", "data": [{"value": "data_f", "time": 1571612402.84189}]}
+{"column_family": "fam1", "column": "key1", "row": "sample_a", "data": [{"value": "data_a", "time": 1571619836.384479}]}{"column_family": "fam1", "column": "key1", "row": "sample_c", "data": [{"value": "data_c", "time": 1571619836.393996}]}{"column_family": "fam1", "column": "key1", "row": "sample_f", "data": [{"value": "data_f", "time": 1571619836.399961}]}
