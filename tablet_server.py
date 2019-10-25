@@ -486,10 +486,10 @@ def retrieve_range_of_cells_sstable(table_name, row_from, row_to):
         range_list = find_range_of_values_on_sstable(len(in_memory_index) - row_from_index_num - 1, row_from, row_to)
     result_list = list()
     # import pdb; pdb.set_trace()
-    for each_row in range(row_from_index_num, row_to_index_num + 1):
+    for each_row in range_list:
         output_range = dict()
-        output_range['row'] = range_list[each_row]['row']
-        output_range['data'] = range_list[each_row]['data']
+        output_range['row'] = each_row['row']
+        output_range['data'] = each_row['data']
         result_list.append(output_range)
     send_range = dict()
     send_range['rows'] = result_list
@@ -516,8 +516,8 @@ def get_range_rows_mem_table(table_name, row_from, row_to):
 
 @tablet_server.route('/api/table/<path:text>/cells', methods=['GET'])
 def retrieve_range_of_cells(text):
-    if text == "table_metadata":
-        pdb.set_trace()
+    # if text == "table_metadata":
+    #     pdb.set_trace()
     content = request.get_json()
     row_from = content['row_from']
     row_to = content['row_to']
