@@ -352,9 +352,23 @@ def find_a_row_on_disk(table, row_name):
         # print(str_line)
 
 
+def find_col_exists(table_name, content):
+    # if table_name == "table_basic":
+    #     pdb.set_trace()
+    table_info = table_contents[table_name]['column_families']
+    for each_col_family in table_info:
+        if each_col_family['column_family_key'] == content['column_family']:
+            column_list = each_col_family['columns']
+            if content['column'] not in column_list:
+                return False
+    return True
+
+
 def get_row_from_mem_table(text, content):
     row_name = content['row']
     row = find_a_row_memt(text, row_name)
+    if len(row) == 0 and not find_col_exists(text, content):
+        return Response(status=400)
     # if text == "table_metadata":
     #     pdb.set_trace()
     # did not find on mem table- so search in ss index / table
@@ -394,13 +408,13 @@ def get_multiple_row_value(each_ent):
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
     content = request.get_json()
-    # if text == "table_metadata":
+    # if text == "table_basic":
     #     pdb.set_trace()
     tbl_name = text
     if tbl_name not in tables_list:
         return Response(status=404)
     else:
-        send_result = get_row_from_mem_table(text, content)
+        send_result = get_row_from_mem_table(tbl_name, content)
         return send_result
 
 
