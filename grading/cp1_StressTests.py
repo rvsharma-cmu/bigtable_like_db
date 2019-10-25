@@ -1,6 +1,7 @@
 import requests, unittest, json
 from MySupport import MySupport
 import os
+import pdb
 
 class StressTests(unittest.TestCase):
     HOSTNAME = "host"
@@ -25,7 +26,8 @@ class StressTests(unittest.TestCase):
         return suite
 
     def test_populate_data(self):
-        csv_file = os.path.join(os.getcwd(), "../dataset/movies.csv")
+        # pdb.set_trace()
+        csv_file = os.path.join(os.getcwd(), "dataset/movies.csv")
         self.assertTrue(os.path.exists(csv_file))
 
         lines = open(csv_file).read().splitlines()

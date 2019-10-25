@@ -5,8 +5,8 @@ from MySupport import MySupport
 
 
 class OpTests(unittest.TestCase):
-    HOSTNAME = "localhost"
-    PORT = 5000
+    HOSTNAME = "host"
+    PORT = 80
 
     def suite():
         suite = unittest.TestSuite()

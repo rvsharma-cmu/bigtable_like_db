@@ -36,6 +36,7 @@ class KillTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("Test basic setup succeeded in kill test!")
 
     def test_teardown(self):
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/table_kill")
@@ -44,6 +45,8 @@ class KillTests(unittest.TestCase):
         response = requests.delete(url)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("Test teardown succeeded in kill tests")
+        print("Kill tests all passed!!")
 
     def test_kill(self):
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_kill/cell")
@@ -89,4 +92,5 @@ class KillTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
+        print("Test kill succeeded in kill tests!")
 

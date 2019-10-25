@@ -3,6 +3,7 @@ from flask import request, jsonify, Response
 import json
 import pdb
 import sys
+import os
 
 tablet_server = flask.Flask(__name__)
 tablet_server.config["DEBUG"] = True
@@ -49,6 +50,12 @@ this_spill_list = []
     is stored
 """
 table_spill_dict = dict()
+"""
+    Metadata hash set to track if metadata has been created for this table. 
+    This just has the table names of tables which have their metadata stored 
+    on the disk in case of recovery 
+"""
+metadata_exists = set()
 
 """
     Method that appends a table name to the 
@@ -57,15 +64,15 @@ table_spill_dict = dict()
 
 
 def create_table_self(table_name, table_info):
-    path = table_name + "_meta_data.mdt"
+    path = table_name + ".mdt"
     file_desc = open(path, 'w')
-    file_desc.write("Table:" + table_name + "\n")
+    file_desc.write(json.dumps(table_info))
     file_desc.close()
 
-    write_ahead_log = table_name + ".wal"
-    file_desc = open(write_ahead_log, 'w')
-    file_desc.write("Table:" + table_name + "\n")
-    file_desc.close()
+    # write_ahead_log = table_name + ".wal"
+    # file_desc = open(write_ahead_log, 'w')
+    # file_desc.write("Table:" + table_name + "\n")
+    # file_desc.close()
     tables_list.append(table_name)
     table_contents[table_name] = table_info
     return Response(status=200)
@@ -81,7 +88,6 @@ def create_table_self(table_name, table_info):
 
 @tablet_server.route('/api/tables', methods=['POST'])
 def create_table():
-    # import pdb;
     # pdb.set_trace()
     # create a table with name
     if request.method == 'POST':
@@ -94,6 +100,8 @@ def create_table():
             if table_info['name'] == server_name:
                 return Response(status=409)
         # else create a table with request
+        # if table_info['name'] == "table_kill":
+        #     pdb.set_trace()
         if table_info['name'] not in tables_list:
             response = create_table_self(table_info['name'], table_info)
             return response
@@ -155,6 +163,8 @@ def get_particular_info(text):
 @tablet_server.route('/api/tables/<path:text>', methods=['DELETE'])
 def table_delete(text):
     global tables_list
+    # if text == "table_kill":
+    #     pdb.set_trace()
     if len(tables_list) == 0:
         return Response(status=400)
     else:
@@ -210,8 +220,8 @@ def add_row_to_mem_table(table_name, content):
     #     pdb.set_trace()
     update_lru_counter(content)
     if len(mem_table) == 0:
-        if mem_table_spill_counter == 0:
-            create_meta_data_file(content, table_name)
+        # if table_name not in metadata_exists:
+        #     create_meta_data_file(content, table_name)
         mem_table.append(content)
         this_spill_list.append(str(table_name + "|" + content['row']))
         return Response(status=200)
@@ -248,17 +258,14 @@ def mem_table_spill():
 def create_meta_data_file(content, table_name):
     meta_data = table_name + ".mdt"
     file_desc = open(meta_data, 'a+')
-    col_fam = content['column_family']
-    file_desc.write("Column Family:" + col_fam + "\n")
-    col_name = content['column']
-    file_desc.write("\tColumn: " + col_name + "\n")
+    file_desc.write(json.dumps(content))
     file_desc.close()
 
 
 def write_ahead_log_entry(content, table_name):
     wal = table_name + ".wal"
     file_desc = open(wal, 'a+')
-    file_desc.write(json.dumps(content))
+    file_desc.write(json.dumps(content) + "\n")
     file_desc.close()
 
 
@@ -292,7 +299,7 @@ def check_col_exists(table_name, col_fam, col_name):
 def insert_a_cell(text):
     # import pdb; pdb.set_trace()
     # print(text)
-    # if text == "table_metadata":
+    # if text == "table_kill":
     #     pdb.set_trace()
     if text not in tables_list:
         return Response(status=404)
@@ -364,7 +371,7 @@ def find_col_exists(table_name, content):
     return True
 
 
-def get_row_from_mem_table(text, content):
+def get_row_from_mem_table_disk(text, content):
     row_name = content['row']
     row = find_a_row_memt(text, row_name)
     if len(row) == 0 and not find_col_exists(text, content):
@@ -405,16 +412,46 @@ def get_multiple_row_value(each_ent):
     return new_diction
 
 
+def recover_from_md(table_name):
+    meta_data_file_name = table_name + ".mdt"
+    wal_file_name = table_name + ".wal"
+    cwd = os.getcwd()
+    recovered = False
+
+    for root, dirs, files in os.walk(cwd):
+        if meta_data_file_name in files and wal_file_name in files:
+            # os.path.join(root, meta_data_file_name)
+            # file_desc = open(meta_data_file_name, 'r+')
+            # get the table infor from the meta data file
+            lines = [line.rstrip('\n') for line in open(meta_data_file_name)]
+            for each_l in lines:
+                data = json.loads(each_l)
+                # and create the table in the tables list
+                create_table_self(table_name, data)
+            # use the wal to send the row data one by one
+            lines = [line.rstrip('\n') for line in open(wal_file_name)]
+            for each_line in lines:
+                add_row_to_mem_table(table_name, json.loads(each_line))
+            recovered = True
+    return recovered
+
+
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
-    content = request.get_json()
-    # if text == "table_basic":
+    # if text == "table_kill":
     #     pdb.set_trace()
+    # recovery when mem table is 0 and tables list is empty
+    # reasoning for these conditions for recovery is that
+    # you cannot retrieve anything if there is no table
+    # so attempt to recover data from the meta data and wal
+    if len(mem_table) == 0 and len(tables_list) == 0:
+        recovered = recover_from_md(text)
+    content = request.get_json()
     tbl_name = text
     if tbl_name not in tables_list:
         return Response(status=404)
     else:
-        send_result = get_row_from_mem_table(tbl_name, content)
+        send_result = get_row_from_mem_table_disk(tbl_name, content)
         return send_result
 
 
