@@ -276,11 +276,12 @@ class OpTests(unittest.TestCase):
         memtable = {
             "memtable_max": 20
         }
-
+        # pdb.set_trace()
         # set memtable max to 20
         response = requests.post(url_memtable, json=memtable)
         self.assertEqual(response.status_code, 200)
 
+        # pdb.set_trace()
         # insert one entry
         data["row"] = "row_0"
         row_0_time = time.time()
@@ -317,6 +318,7 @@ class OpTests(unittest.TestCase):
             "column": "key1",
             "row": "row_0",
         }
+        # pdb.set_trace()
         response = requests.get(url, json=retrieve_single)
         expected = {
             "row": "row_0",
@@ -330,7 +332,7 @@ class OpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
-
+        # pdb.set_trace()
         # search range of entries - starting at row which is spilled, ending at
         # row which is in memtable
         retrieve_range = {

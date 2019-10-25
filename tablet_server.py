@@ -1,31 +1,54 @@
-
-
 import flask
 from flask import request, jsonify, Response
 import json
 import pdb
+import sys
 
 tablet_server = flask.Flask(__name__)
 tablet_server.config["DEBUG"] = True
-
-'tablet to server name mapping'
+""" tablet to server name mapping
+    This will list which tablet is 
+    mapped to which server. 
+"""
 tablet_serv_name_mapping = dict()
+
 'the list of tables in this tablet server'
 tables_list = list()
-'path of persistent storage'
-persistent_storage = '/Users/raghavs/14848/starter/persist/'
-'dictionary for table. It will have the properties of table like column name and rows'
+
+'dictionary for the ss tables and indexes of the ss tables'
+ss_index = dict()
+
+""" Dictionary for table. 
+    It will have the properties of table like column name and rows
+    Essentially it will contain the json input when the table is being created
+"""
 table_contents = dict()
-'memtable'
+
+"""
+    This is the memtable for the tablet server
+"""
 mem_table = list()
+
 'default size of the memtable. Initial value is 100'
 mem_table_size = 100
-'mem_table spill counter'
+"""mem_table spill counter. The number of times that this
+    has spilled to disk
+"""
 mem_table_spill_counter = 0
 """
 dictionary of rows against the counts of values inserted 
 """
 row_counter = dict()
+'in memory index'
+in_memory_index = []
+'list of all rows that exist in this mem_table spillage'
+this_spill_list = []
+"""
+    Dictionary that maps the spill list with the 
+    index of the SS table where the rows information 
+    is stored
+"""
+table_spill_dict = dict()
 
 """
     Method that appends a table name to the 
@@ -34,12 +57,12 @@ row_counter = dict()
 
 
 def create_table_self(table_name, table_info):
-    path = persistent_storage + table_name + "_meta_data.mdt"
+    path = table_name + "_meta_data.mdt"
     file_desc = open(path, 'w')
     file_desc.write("Table:" + table_name + "\n")
     file_desc.close()
 
-    write_ahead_log = persistent_storage + table_name + ".wal"
+    write_ahead_log = table_name + ".wal"
     file_desc = open(write_ahead_log, 'w')
     file_desc.write("Table:" + table_name + "\n")
     file_desc.close()
@@ -66,39 +89,34 @@ def create_table():
         if table_info is None:
             return Response(status=400)
         for server_name in tables_list:
-            print(server_name)
+            # print(server_name)
+            # return 409 if table already exists
             if table_info['name'] == server_name:
                 return Response(status=409)
-        # print("Hello")
+        # else create a table with request
         if table_info['name'] not in tables_list:
             response = create_table_self(table_info['name'], table_info)
             return response
-    if request.method == 'DELETE':
-        table_delete()
 
 
 """
     List all tables that are present on this tablet
-    :return 200 and content with the table info 
-    : return 200 with empty content if not tables are defined 
+    : return 200 and content with the table info 
+    : return 200 with empty content if no tables are defined 
 """
 
 
 @tablet_server.route('/api/tables', methods=['GET'])
 def list_tables():
-    # var = request.url
-    # print(var)
-    # tab_name = var.split("/")[-1]
-    # print("list_tables = ", tab_name)
     global tables_list
-    print("I am in tables")
     response = dict()
     table_names = list()
     output = dict()
+    # send empty response if no tables
+    # are defined
     if len(tables_list) == 0:
         response["tables"] = table_names
         output = jsonify(response)
-        print(output)
         output.status_code = 200
         return output
     else:
@@ -106,9 +124,16 @@ def list_tables():
             table_names.append(table_n)
         response["tables"] = table_names
         output = jsonify(response)
-        print(output)
         output.status_code = 200
         return output
+
+
+"""
+    This api handle gets all the information 
+    of the associated table to the caller 
+    Values like columns, column families, 
+    table name 
+"""
 
 
 @tablet_server.route('/api/tables/<path:text>', methods=['GET'])
@@ -119,6 +144,12 @@ def get_particular_info(text):
     response_dict = jsonify(table_info)
     response_dict.status_code = 200
     return response_dict
+
+
+"""
+    This method deletes a particular table from the 
+    tablet server 
+"""
 
 
 @tablet_server.route('/api/tables/<path:text>', methods=['DELETE'])
@@ -135,8 +166,15 @@ def table_delete(text):
             return Response(status=404)
 
 
-def spill(content):
-    pass
+def spill(mem_table_to_spill):
+    path = "sstable_ " + str(mem_table_spill_counter) + ".txt"
+    ss_index['sstable_' + str(mem_table_spill_counter)] = path
+    file_desc = open(path, 'w+')
+    for each_entry in mem_table_to_spill:
+        file_desc.write(json.dumps(each_entry) + "||")
+    file_desc.close()
+    # table_spill_dict = dict()
+    # table_spill_dict[mem_table_spill_counter] = []
 
 
 def run_gc(row_key):
@@ -163,30 +201,52 @@ def update_lru_counter(content):
 
 
 def add_row_to_mem_table(table_name, content):
-    write_ahead_log_entry(content, table_name)
     global mem_table
     global mem_table_spill_counter
-    print(content)
-    # import pdb;
-    # pdb.set_trace()
+    global this_spill_list
+    write_ahead_log_entry(content, table_name)
+    # print(content)
+    # if table_name == "table_metadata":
+    #     pdb.set_trace()
     update_lru_counter(content)
     if len(mem_table) == 0:
         if mem_table_spill_counter == 0:
             create_meta_data_file(content, table_name)
-            mem_table.append(content)
-            return Response(status=200)
+        mem_table.append(content)
+        this_spill_list.append(str(table_name + "|" + content['row']))
+        return Response(status=200)
     elif len(mem_table) < mem_table_size:
         mem_table.append(content)
-        sorted(mem_table, key=lambda x: (str(x["data"][0]["value"]), float(x["data"][0]["time"])))
-    elif len(mem_table) == mem_table_size:
-        spill(content)
-        mem_table = list()
-        mem_table_spill_counter += 1
+        sorted(mem_table, key=lambda x: (float(x["data"][0]["time"])))
+        this_spill_list.append(str(table_name + "|" + content['row']))
+    elif len(mem_table) >= mem_table_size:
+        mem_table_spill()
     return Response(status=200)
 
 
+"""
+    Method to spill the mem_table to disk. 
+    This will be triggered during normal row insertion as 
+    well as the change in the mem_table_limit 
+"""
+
+
+def mem_table_spill():
+    global mem_table, this_spill_list, mem_table_spill_counter, table_spill_dict
+    if len(mem_table) < mem_table_size:
+        return
+    spill(mem_table)
+    # pdb.set_trace()
+    mem_table = list()
+    table_spill_dict[mem_table_spill_counter] = this_spill_list
+    this_spill_list = list()
+    in_memory_index.append(table_spill_dict)
+    table_spill_dict = dict()
+    mem_table_spill_counter += 1
+
+
 def create_meta_data_file(content, table_name):
-    meta_data = persistent_storage + table_name + ".mdt"
+    meta_data = table_name + ".mdt"
     file_desc = open(meta_data, 'a+')
     col_fam = content['column_family']
     file_desc.write("Column Family:" + col_fam + "\n")
@@ -196,7 +256,7 @@ def create_meta_data_file(content, table_name):
 
 
 def write_ahead_log_entry(content, table_name):
-    wal = persistent_storage + table_name + ".wal"
+    wal = table_name + ".wal"
     file_desc = open(wal, 'a+')
     file_desc.write(json.dumps(content))
     file_desc.close()
@@ -232,8 +292,8 @@ def check_col_exists(table_name, col_fam, col_name):
 def insert_a_cell(text):
     # import pdb; pdb.set_trace()
     # print(text)
-    # if text == "table_gc":
-    # pdb.set_trace()
+    # if text == "table_metadata":
+    #     pdb.set_trace()
     if text not in tables_list:
         return Response(status=404)
     content = request.get_json()
@@ -255,10 +315,51 @@ def find_a_row_memt(table, row_num):
     return result
 
 
-def get_row_from_mem_table(text, content):
+def find_value_on_ss_index(ss_index_val, row_name, table):
+    # pdb.set_trace()
+    key_val = "sstable_" + str(ss_index_val)
+    ss_table_name = ss_index[key_val]
+    # file_desc = open(ss_table_name, 'r')
+    # file_desc.read()
+    lines = [line.rstrip('\n') for line in open(ss_table_name)]
+    result = list()
+    strs = lines[0].split("||")
+    for each_line in strs:
+        if each_line != "":
+            data = json.loads(each_line)
+            if data['row'] == row_name:
+                result.append(data)
+    return result
 
+
+str_line = str
+
+
+def find_a_row_on_disk(table, row_name):
+    # pdb.set_trace()
+    global str_line
+    ss_index_val = 0
+    # check where the row exists: i.e. in
+    # which ss_table
+    for each_dict in in_memory_index:
+        for each_list in each_dict.values():
+            for each_entry in each_list:
+                str_list = each_entry.split("|")
+                if str_list[1] == row_name and str_list[0] == table:
+                    result_list = find_value_on_ss_index(ss_index_val, row_name, table)
+                    return result_list
+        ss_index_val += 1
+        # print(str_line)
+
+
+def get_row_from_mem_table(text, content):
     row_name = content['row']
     row = find_a_row_memt(text, row_name)
+    # if text == "table_metadata":
+    #     pdb.set_trace()
+    # did not find on mem table- so search in ss index / table
+    if len(row) == 0:
+        row = find_a_row_on_disk(text, row_name)
     # import pdb; pdb.set_trace()
     data_key_list = list()
     if len(row) != 0:
@@ -278,6 +379,7 @@ def get_row_from_mem_table(text, content):
         send_single_output = jsonify(new_dict)
         send_single_output.status_code = 200
         return send_single_output
+    # return 400 if not found anywhere
     else:
         return Response(status=400)
 
@@ -292,7 +394,7 @@ def get_multiple_row_value(each_ent):
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
     content = request.get_json()
-    # if text == "table_gc":
+    # if text == "table_metadata":
     #     pdb.set_trace()
     tbl_name = text
     if tbl_name not in tables_list:
@@ -336,6 +438,65 @@ def retrieve_range_of_cells_memt(start_index, end_index):
     return send_range
 
 
+string_line = str
+
+
+def find_row_on_disk(table_name, row_name):
+    global string_line
+    ss_index_val = 0
+    # check where the row exists: i.e. in
+    # which ss_table
+    # for i in range(len(in_memory_index))
+    for each_dict in reversed(in_memory_index):
+        for each_list in each_dict.values():
+            for each_entry in each_list:
+                str_list = each_entry.split("|")
+                if str_list[1] == row_name and str_list[0] == table_name:
+                    return ss_index_val
+        ss_index_val += 1
+        # print(str_line)
+
+
+def find_range_of_values_on_sstable(ss_index_val, row_from, row_to):
+    # pdb.set_trace()
+    # take the file name where the values exists
+    key_val = "sstable_" + str(ss_index_val)
+    ss_table_name = ss_index[key_val]
+    # file_desc = open(ss_table_name, 'r')
+    # file_desc.read()
+    lines = [line.rstrip('\n') for line in open(ss_table_name)]
+    result = list()
+    strs = lines[0].split("||")
+    for each_line in strs:
+        if each_line != "":
+            data = json.loads(each_line)
+            if row_from <= data['row'] <= row_to:
+                result.append(data)
+    return result
+
+
+def retrieve_range_of_cells_sstable(table_name, row_from, row_to):
+    # reversed loop;
+    row_from_index_num = find_row_on_disk(table_name, row_from)
+    row_to_index_num = find_row_on_disk(table_name, row_to)
+    # if table_name == "table_metadata":
+    #     pdb.set_trace()
+    range_list = list()
+    if row_from_index_num == row_to_index_num:
+        range_list = find_range_of_values_on_sstable(len(in_memory_index) - row_from_index_num - 1, row_from, row_to)
+    result_list = list()
+    # import pdb; pdb.set_trace()
+    for each_row in range(row_from_index_num, row_to_index_num + 1):
+        output_range = dict()
+        output_range['row'] = range_list[each_row]['row']
+        output_range['data'] = range_list[each_row]['data']
+        result_list.append(output_range)
+    send_range = dict()
+    send_range['rows'] = result_list
+    # send_range.status_code = 200
+    return send_range
+
+
 def get_range_rows_mem_table(table_name, row_from, row_to):
     range_result = dict()
     if table_name not in tables_list:
@@ -345,26 +506,35 @@ def get_range_rows_mem_table(table_name, row_from, row_to):
     # pdb.set_trace()
     start_index = retrieve_cell_index_memt(content['row_from'], content['row_to'], "front")
     end_index = retrieve_cell_index_memt(content['row_from'], content['row_to'], "reverse")
+    # check if the start and end row exists in mem table
     if start_index is not None and end_index is not None:
         return retrieve_range_of_cells_memt(start_index, end_index)
-    return Response(status=200)
+    # if both indexes are none then check in ss tables
+    elif start_index is None and end_index is None:
+        return retrieve_range_of_cells_sstable(table_name, row_from, row_to)
 
 
 @tablet_server.route('/api/table/<path:text>/cells', methods=['GET'])
 def retrieve_range_of_cells(text):
+    if text == "table_metadata":
+        pdb.set_trace()
     content = request.get_json()
     row_from = content['row_from']
     row_to = content['row_to']
-    response = jsonify(get_range_rows_mem_table(text, row_from, row_to))
+    rows_list = get_range_rows_mem_table(text, row_from, row_to)
+    response = jsonify(rows_list)
     response.status_code = 200
     return response
 
 
-@tablet_server.route('/api/memtable', methods=['GET'])
+@tablet_server.route('/api/memtable', methods=['POST'])
 def set_mem_table_max_entries():
+    # pdb.set_trace()
     global mem_table_size
-    mem_table_size = request.args.get('memtable_max')
+    content = request.get_json()
+    mem_table_size = content['memtable_max']
+    mem_table_spill()
     return Response(status=200)
 
 
-tablet_server.run()
+tablet_server.run(host=sys.argv[1], port=sys.argv[2])
