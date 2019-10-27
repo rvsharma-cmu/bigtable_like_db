@@ -76,7 +76,7 @@ class StressTests(unittest.TestCase):
 
         url_insert =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
         url_retrieve =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
-
+        # pdb.set_trace()
         row_id = 0
         for data in self.csv_data:
             for i in range(len(data)):
@@ -93,7 +93,7 @@ class StressTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
 
             row_id = row_id + 1
-        
+        pdb.set_trace()
         row_id = 0
         for data in self.csv_data:
             for i in range(len(data)):

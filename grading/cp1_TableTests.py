@@ -27,7 +27,7 @@ class TableTests(unittest.TestCase):
         jso = response.json()
         expected = {"tables": []}
         self.assertEqual(jso, expected)
-        print("TEST_NO_TABLES PASSED!!!!!!!!!")
+        print("TEST_NO_TABLES PASSED!")
 
     def test_create(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
@@ -66,7 +66,7 @@ class TableTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("TEST_CREATE_TABLE PASSED!!!!!!!!!")
+        print("TEST_CREATE_TABLE PASSED!")
 
     def test_list_with_content(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
@@ -102,7 +102,7 @@ class TableTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected_after)
-        print("TEST_DELETE PASSED!!!!")
+        print("TEST_DELETE PASSED!")
 
     def test_getinfo(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
