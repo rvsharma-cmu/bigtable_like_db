@@ -223,12 +223,12 @@ def add_row_to_mem_table(table_name, content):
         # if table_name not in metadata_exists:
         #     create_meta_data_file(content, table_name)
         mem_table.append(content)
-        this_spill_list.append(str(table_name + "|" + content['row']))
+        this_spill_list.append(str(table_name + "|" + str(content['row'])))
         return Response(status=200)
     elif len(mem_table) < mem_table_size:
         mem_table.append(content)
         sorted(mem_table, key=lambda x: (float(x["data"][0]["time"])))
-        this_spill_list.append(str(table_name + "|" + content['row']))
+        this_spill_list.append(str(table_name + "|" + str(content['row'])))
     elif len(mem_table) >= mem_table_size:
         mem_table_spill()
     return Response(status=200)
@@ -299,7 +299,7 @@ def check_col_exists(table_name, col_fam, col_name):
 def insert_a_cell(text):
     # import pdb; pdb.set_trace()
     # print(text)
-    # if text == "table_kill":
+    # if text == "my_csv":
     #     pdb.set_trace()
     if text not in tables_list:
         return Response(status=404)
@@ -438,7 +438,7 @@ def recover_from_md(table_name):
 
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
-    # if text == "table_kill":
+    # if text == "my_csv":
     #     pdb.set_trace()
     # recovery when mem table is 0 and tables list is empty
     # reasoning for these conditions for recovery is that
