@@ -53,7 +53,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("TEST_SETUP_PASSED!!!!!!!")
+        print("TEST_SETUP_PASSED!")
 
     def test_teardown(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
@@ -69,7 +69,7 @@ class OpTests(unittest.TestCase):
         response = requests.delete(url_gc)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("TEST_TEARDOWN_PASSED!!!!!!!")
+        print("TEST_TEARDOWN_PASSED!")
 
     def test_basic(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
@@ -112,7 +112,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("Insert second single row worked !!")
+        print("Insert second single row worked!")
         # insert single
         data["row"] = "sample_f"
         data["data"][0]["value"] = "data_f"
@@ -121,7 +121,7 @@ class OpTests(unittest.TestCase):
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
-        print("Insert third single row worked !!")
+        print("Insert third single row worked!")
         # retrieve single
         response = requests.get(url, json=retrieve_single)
         expected = {
@@ -162,7 +162,7 @@ class OpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
         self.assertEqual(response.json(), expected)
-        print("YA BASIC !!!!!!!")
+        print("Basic Passed!")
 
     def test_basic_error(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_basic/cell")
@@ -186,25 +186,25 @@ class OpTests(unittest.TestCase):
         response = requests.post(url_nope)
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.content)
-        print("table nope does not exists passed!!!!")
+        print("table nope does not exists passed!")
 
         # retrieve - table does not exist 
         response = requests.get(url_nope)
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.content)
-        print("table nope does not exists passed AGAIN !!!!")
+        print("table nope does not exists passed !")
 
         # insert - colfam not exist
         response = requests.post(url, json=data)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.content)
-        print("column fam not exists passed!!")
+        print("column fam not exists passed!")
 
         # retrive - col not exist
         response = requests.get(url, json=retrieve_single)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.content)
-        print("YA BASIC ERROR PASSSEEDDDDDDD!!!!!!!")
+        print("Basic Error Passed")
 
     def test_garbage_collection(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_gc/cell")

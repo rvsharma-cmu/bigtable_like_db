@@ -84,17 +84,11 @@ def table_row_major(table_info):
 
 def create_table_self(table_name, table_info):
     global lru_limit, col_major
-    # if table_name == "my_csv":
-    #     pdb.set_trace()
     path = table_name + ".mdt"
     file_desc = open(path, 'w')
     file_desc.write(json.dumps(table_info))
     file_desc.close()
 
-    # write_ahead_log = table_name + ".wal"
-    # file_desc = open(write_ahead_log, 'w')
-    # file_desc.write("Table:" + table_name + "\n")
-    # file_desc.close()
     tables_list.append(table_name)
     table_contents[table_name] = table_info
     if row_major:
@@ -113,7 +107,6 @@ def create_table_self(table_name, table_info):
 
 @tablet_server.route('/api/tables', methods=['POST'])
 def create_table():
-    # pdb.set_trace()
     # create a table with name
     if request.method == 'POST':
         table_info = request.get_json()
@@ -125,8 +118,6 @@ def create_table():
             if table_info['name'] == server_name:
                 return Response(status=409)
         # else create a table with request
-        # if table_info['name'] == "table_kill":
-        #     pdb.set_trace()
         if table_info['name'] not in tables_list:
             response = create_table_self(table_info['name'], table_info)
             return response
@@ -188,8 +179,7 @@ def get_particular_info(text):
 @tablet_server.route('/api/tables/<path:text>', methods=['DELETE'])
 def table_delete(text):
     global tables_list
-    # if text == "table_kill":
-    #     pdb.set_trace()
+
     if len(tables_list) == 0:
         return Response(status=400)
     else:
@@ -208,13 +198,10 @@ def spill(mem_table_to_spill):
     for each_entry in mem_table_to_spill:
         file_desc.write(json.dumps(each_entry) + "||")
     file_desc.close()
-    # table_spill_dict = dict()
-    # table_spill_dict[mem_table_spill_counter] = []
 
 
 def run_gc(row_key):
     print("Came into garbage collection")
-    # pdb.set_trace()
     index_to_be_del = 0
     for each_entry in mem_table:
         var = each_entry['row']
@@ -242,14 +229,10 @@ def add_row_to_mem_table(table_name, content):
     global mem_table_spill_counter
     global this_spill_list
     write_ahead_log_entry(content, table_name)
-    # print(content)
-    # if table_name == "table_metadata":
-    #     pdb.set_trace()
+
     if not row_major:
         update_lru_counter(content)
     if len(mem_table) == 0:
-        # if table_name not in metadata_exists:
-        #     create_meta_data_file(content, table_name)
         mem_table.append(content)
         this_spill_list.append(str(table_name + "|" + str(content['row'])))
         return Response(status=200)
@@ -327,11 +310,9 @@ def check_col_exists(table_name, col_fam, col_name):
 
 @tablet_server.route('/api/table/<path:text>/cell', methods=['POST'])
 def insert_a_cell(text):
-    # import pdb; pdb.set_trace()
-    # print(text)
+
     content = request.get_json()
-    # if text == "my_csv" and content['row'] == 525:
-    #     pdb.set_trace()
+
     if text not in tables_list:
         return Response(status=404)
     col_fam = content['column_family']
@@ -344,8 +325,6 @@ def insert_a_cell(text):
 
 
 def find_a_row_memt(table, row_num):
-    # if table == "my_csv" and row_num == 525:
-    #     pdb.set_trace()
     result = list()
     global row_major, row_num_count, current_row
     if len(current_row) == 0 and row_major:
@@ -399,7 +378,6 @@ str_line = str
 
 
 def find_a_row_on_disk(table, row_name):
-    # pdb.set_trace()
     global str_line
     ss_index_val = 0
     # check where the row exists: i.e. in
@@ -412,12 +390,10 @@ def find_a_row_on_disk(table, row_name):
                     result_list = find_value_on_ss_index(ss_index_val, row_name, table)
                     return result_list
         ss_index_val += 1
-        # print(str_line)
 
 
 def find_col_exists(table_name, content):
-    # if table_name == "table_basic":
-    #     pdb.set_trace()
+
     table_info = table_contents[table_name]['column_families']
     for each_col_family in table_info:
         if each_col_family['column_family_key'] == content['column_family']:
@@ -427,8 +403,6 @@ def find_col_exists(table_name, content):
     return True
 
 
-current_col = ""
-col_num_count = 1
 str_line_col = str
 
 
@@ -470,8 +444,7 @@ def get_row_from_mem_table_disk(text, content):
         row = find_a_row_memt(text, row_name)
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
-    # if text == "table_metadata":
-    #     pdb.set_trace()
+
     # did not find on mem table- so search in ss index / table
     if len(row) == 0:
         row = find_a_row_on_disk(text, row_name)
@@ -521,8 +494,7 @@ def recover_from_md(table_name):
 
     for root, dirs, files in os.walk(cwd):
         if meta_data_file_name in files and wal_file_name in files:
-            # os.path.join(root, meta_data_file_name)
-            # file_desc = open(meta_data_file_name, 'r+')
+
             # get the table infor from the meta data file
             lines = [line.rstrip('\n') for line in open(meta_data_file_name)]
             for each_l in lines:
@@ -540,8 +512,6 @@ def recover_from_md(table_name):
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
     content = request.get_json()
-    # if text == "my_csv" and content['row'] == 0 and col_major:
-    #     pdb.set_trace()
     # recovery when mem table is 0 and tables list is empty
     # reasoning for these conditions for recovery is that
     # you cannot retrieve anything if there is no table
@@ -578,7 +548,6 @@ def retrieve_cell_index_memt(row_from, row_to, direction):
 
 def retrieve_range_of_cells_memt(start_index, end_index):
     result_list = list()
-    # import pdb; pdb.set_trace()
     for each_row in range(start_index, end_index + 1):
         output_range = dict()
         output_range['row'] = mem_table[each_row]['row']
@@ -586,7 +555,6 @@ def retrieve_range_of_cells_memt(start_index, end_index):
         result_list.append(output_range)
     send_range = dict()
     send_range['rows'] = result_list
-    # send_range.status_code = 200
     return send_range
 
 
@@ -598,7 +566,6 @@ def find_row_on_disk(table_name, row_name):
     ss_index_val = 0
     # check where the row exists: i.e. in
     # which ss_table
-    # for i in range(len(in_memory_index))
     for each_dict in reversed(in_memory_index):
         for each_list in each_dict.values():
             for each_entry in each_list:
@@ -606,16 +573,14 @@ def find_row_on_disk(table_name, row_name):
                 if str_list[1] == row_name and str_list[0] == table_name:
                     return ss_index_val
         ss_index_val += 1
-        # print(str_line)
 
 
 def find_range_of_values_on_sstable(ss_index_val, row_from, row_to):
-    # pdb.set_trace()
+
     # take the file name where the values exists
     key_val = "sstable_" + str(ss_index_val)
     ss_table_name = ss_index[key_val]
-    # file_desc = open(ss_table_name, 'r')
-    # file_desc.read()
+
     lines = [line.rstrip('\n') for line in open(ss_table_name)]
     result = list()
     strs = lines[0].split("||")
@@ -631,13 +596,12 @@ def retrieve_range_of_cells_sstable(table_name, row_from, row_to):
     # reversed loop;
     row_from_index_num = find_row_on_disk(table_name, row_from)
     row_to_index_num = find_row_on_disk(table_name, row_to)
-    # if table_name == "table_metadata":
-    #     pdb.set_trace()
+
     range_list = list()
     if row_from_index_num == row_to_index_num:
         range_list = find_range_of_values_on_sstable(len(in_memory_index) - row_from_index_num - 1, row_from, row_to)
     result_list = list()
-    # import pdb; pdb.set_trace()
+
     for each_row in range_list:
         output_range = dict()
         output_range['row'] = each_row['row']
@@ -654,8 +618,7 @@ def get_range_rows_mem_table(table_name, row_from, row_to):
     if table_name not in tables_list:
         return Response(status=404)
     content = request.get_json()
-    # import pdb;
-    # pdb.set_trace()
+
     start_index = retrieve_cell_index_memt(content['row_from'], content['row_to'], "front")
     end_index = retrieve_cell_index_memt(content['row_from'], content['row_to'], "reverse")
     # check if the start and end row exists in mem table
@@ -668,8 +631,6 @@ def get_range_rows_mem_table(table_name, row_from, row_to):
 
 @tablet_server.route('/api/table/<path:text>/cells', methods=['GET'])
 def retrieve_range_of_cells(text):
-    # if text == "table_metadata":
-    #     pdb.set_trace()
     content = request.get_json()
     row_from = content['row_from']
     row_to = content['row_to']
@@ -681,11 +642,9 @@ def retrieve_range_of_cells(text):
 
 @tablet_server.route('/api/memtable', methods=['POST'])
 def set_mem_table_max_entries():
-    # pdb.set_trace()
     global mem_table_size
     content = request.get_json()
     mem_table_size = content['memtable_max']
-    mem_table_spill()
     return Response(status=200)
 
 
