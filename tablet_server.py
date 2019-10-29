@@ -4,6 +4,7 @@ import json
 import pdb
 import sys
 import os
+import socket
 
 tablet_server = flask.Flask(__name__)
 tablet_server.config["DEBUG"] = True
@@ -308,7 +309,6 @@ def check_col_exists(table_name, col_fam, col_name):
 
 @tablet_server.route('/api/table/<path:text>/cell', methods=['POST'])
 def insert_a_cell(text):
-
     content = request.get_json()
 
     if text not in tables_list:
@@ -370,7 +370,6 @@ def find_a_row_on_disk(table, row_name, col_name):
 
 
 def find_col_exists(table_name, content):
-
     table_info = table_contents[table_name]['column_families']
     for each_col_family in table_info:
         if each_col_family['column_family_key'] == content['column_family']:
@@ -397,7 +396,6 @@ def find_value_on_ss_index_col_maj(ss_index_val, row_name, col_name):
 
 
 def find_data_col_maj(text, row_name, col_name):
-
     global col_num_count, current_col
     global str_line_col
     ss_index_val = 0
@@ -554,7 +552,6 @@ def find_row_on_disk(table_name, row_name):
 
 
 def find_range_of_values_on_sstable(ss_index_val, row_from, row_to):
-
     # take the file name where the values exists
     key_val = "sstable_" + str(ss_index_val)
     ss_table_name = ss_index[key_val]
@@ -627,3 +624,15 @@ def set_mem_table_max_entries():
 
 
 tablet_server.run(host=sys.argv[1], port=sys.argv[2])
+# with is like your try .. finally block in this case
+with open('hosts.mk', 'r') as file:
+    # read a list of lines into data
+    data = file.readlines()
+
+# now change the 2nd line, note that you have to add a newline
+data[8] = "TABLET_HOSTNAME=" + str(socket.gethostname()) + "\n"
+data[9] = "TABLET_PORT=" + str(sys.argv[2]) + "\n"
+print(socket.gethostname())
+# and write everything back
+with open('hosts.mk', 'w') as file:
+    file.writelines(data)

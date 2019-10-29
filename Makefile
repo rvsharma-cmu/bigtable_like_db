@@ -10,7 +10,7 @@ compile:
 	echo "no compile"
 
 grade1:
-	python3 grading/grading.py 1 $(TABLET1_HOSTNAME) $(TABLET1_PORT)
+	python3 grading/grading.py 1 $(TABLET_HOSTNAME) $(TABLET_PORT)
 
 grade2:
 	python3 grading/grading.py 2 $(MASTER_HOSTNAME) $(MASTER_PORT)
