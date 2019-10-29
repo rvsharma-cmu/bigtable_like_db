@@ -61,9 +61,30 @@ metadata_exists = set()
     Method that appends a table name to the 
     list of tables for this server
 """
+row_major = False
+lru_limit = 5
+row_num_count = 1
+current_row = ""
+
+
+def table_row_major(table_info):
+    col_fam_list = table_info['column_families']
+    num_columns = 0
+    lru = 5
+    global row_major, mem_table_size
+    for each_col_fam in col_fam_list:
+        num_columns += len(each_col_fam['columns'])
+    if num_columns > lru:
+        row_major = True
+        mem_table_size += 2
+        lru = num_columns
+    return lru
 
 
 def create_table_self(table_name, table_info):
+    global lru_limit
+    # if table_name == "my_csv":
+    #     pdb.set_trace()
     path = table_name + ".mdt"
     file_desc = open(path, 'w')
     file_desc.write(json.dumps(table_info))
@@ -75,6 +96,7 @@ def create_table_self(table_name, table_info):
     # file_desc.close()
     tables_list.append(table_name)
     table_contents[table_name] = table_info
+    lru_limit = table_row_major(table_info)
     return Response(status=200)
 
 
@@ -202,11 +224,13 @@ def run_gc(row_key):
 
 def update_lru_counter(content):
     row_key = content['row']
+    global lru_limit
     if row_key in row_counter.keys():
         row_counter[row_key] += 1
     else:
         row_counter[row_key] = 1
-    if row_counter[row_key] > 5:
+    if row_counter[row_key] > lru_limit:
+        print("row key more than 5")
         run_gc(row_key)
 
 
@@ -218,7 +242,8 @@ def add_row_to_mem_table(table_name, content):
     # print(content)
     # if table_name == "table_metadata":
     #     pdb.set_trace()
-    update_lru_counter(content)
+    if not row_major:
+        update_lru_counter(content)
     if len(mem_table) == 0:
         # if table_name not in metadata_exists:
         #     create_meta_data_file(content, table_name)
@@ -230,7 +255,7 @@ def add_row_to_mem_table(table_name, content):
         sorted(mem_table, key=lambda x: (float(x["data"][0]["time"])))
         this_spill_list.append(str(table_name + "|" + str(content['row'])))
     elif len(mem_table) >= mem_table_size:
-        mem_table_spill()
+        mem_table_spill(table_name, content)
     return Response(status=200)
 
 
@@ -241,7 +266,7 @@ def add_row_to_mem_table(table_name, content):
 """
 
 
-def mem_table_spill():
+def mem_table_spill(table_name, content):
     global mem_table, this_spill_list, mem_table_spill_counter, table_spill_dict
     if len(mem_table) < mem_table_size:
         return
@@ -252,6 +277,8 @@ def mem_table_spill():
     this_spill_list = list()
     in_memory_index.append(table_spill_dict)
     table_spill_dict = dict()
+    mem_table.append(content)
+    this_spill_list.append(str(table_name + "|" + str(content['row'])))
     mem_table_spill_counter += 1
 
 
@@ -314,28 +341,54 @@ def insert_a_cell(text):
 
 
 def find_a_row_memt(table, row_num):
+    # if table == "my_csv" and row_num == 612:
+    #     pdb.set_trace()
     result = list()
+    global row_major, row_num_count, current_row
+    if len(current_row) == 0 and row_major:
+        current_row = str(row_num)
+    elif current_row != str(row_num) and row_major:
+        current_row = str(row_num)
+        row_num_count = 1
+    int_row_count = 1
     for row in mem_table:
-        if row['row'] == row_num:
+        if row['row'] == row_num and not row_major:
             result.append(row)
-            # return result
+        elif row['row'] == row_num and row_major:
+            if int_row_count != row_num_count:
+                int_row_count += 1
+                continue
+            else:
+                row_num_count += 1
+                return row
     return result
 
 
 def find_value_on_ss_index(ss_index_val, row_name, table):
-    # pdb.set_trace()
+    global row_major, row_num_count, current_row
+    if len(current_row) == 0 and row_major:
+        current_row = str(row_name)
+    elif current_row != str(row_name) and row_major:
+        current_row = str(row_name)
+        row_num_count = 1
     key_val = "sstable_" + str(ss_index_val)
     ss_table_name = ss_index[key_val]
-    # file_desc = open(ss_table_name, 'r')
-    # file_desc.read()
+    int_row_count = 1
     lines = [line.rstrip('\n') for line in open(ss_table_name)]
     result = list()
     strs = lines[0].split("||")
     for each_line in strs:
         if each_line != "":
             data = json.loads(each_line)
-            if data['row'] == row_name:
+            if data['row'] == row_name and not row_major:
                 result.append(data)
+            elif data['row'] == row_name and row_major:
+                if int_row_count != row_num_count:
+                    int_row_count += 1
+                    continue
+                else:
+                    row_num_count += 1
+                    return data
     return result
 
 
@@ -352,7 +405,7 @@ def find_a_row_on_disk(table, row_name):
         for each_list in each_dict.values():
             for each_entry in each_list:
                 str_list = each_entry.split("|")
-                if str_list[1] == row_name and str_list[0] == table:
+                if str_list[1] == str(row_name) and str_list[0] == table:
                     result_list = find_value_on_ss_index(ss_index_val, row_name, table)
                     return result_list
         ss_index_val += 1
@@ -384,6 +437,13 @@ def get_row_from_mem_table_disk(text, content):
     # import pdb; pdb.set_trace()
     data_key_list = list()
     if len(row) != 0:
+        if type(row) == dict:
+            out_range = dict()
+            out_range['row'] = row['row']
+            out_range['data'] = row['data']
+            send_single_out = jsonify(out_range)
+            send_single_out.status_code = 200
+            return send_single_out
         for each_ent in row:
             if len(row) == 1:
                 output_range = dict()
