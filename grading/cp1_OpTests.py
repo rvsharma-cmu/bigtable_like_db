@@ -373,4 +373,4 @@ class OpTests(unittest.TestCase):
         memtable["memtable_max"] = 100
         response = requests.post(url_memtable, json=memtable)
         self.assertEqual(response.status_code, 200)
-        print("Test metadata passed!!!!!!!!!")
+        print("Test metadata passed!!")

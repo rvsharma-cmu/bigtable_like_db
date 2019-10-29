@@ -93,7 +93,6 @@ class StressTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
 
             row_id = row_id + 1
-        pdb.set_trace()
         row_id = 0
         for data in self.csv_data:
             for i in range(len(data)):
@@ -122,10 +121,10 @@ class StressTests(unittest.TestCase):
         # Insert entries into the table in a column-major fashion
         # and re-read all the entries
         print("in test_cols")
-        pdb.set_trace()
         url_insert =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
         url_retrieve =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
 
+        pdb.set_trace()
         for i in range(len(self.schema)):
             row_id = 0
             for data in self.csv_data:
@@ -141,7 +140,7 @@ class StressTests(unittest.TestCase):
                 response = requests.post(url_insert, json=request)
                 self.assertEqual(response.status_code, 200)
                 row_id = row_id + 1
-        
+        # pdb.set_trace()
         for i in range(len(self.schema)):
             row_id = 0
             for data in self.csv_data:

@@ -62,6 +62,7 @@ metadata_exists = set()
     list of tables for this server
 """
 row_major = False
+col_major = False
 lru_limit = 5
 row_num_count = 1
 current_row = ""
@@ -82,7 +83,7 @@ def table_row_major(table_info):
 
 
 def create_table_self(table_name, table_info):
-    global lru_limit
+    global lru_limit, col_major
     # if table_name == "my_csv":
     #     pdb.set_trace()
     path = table_name + ".mdt"
@@ -96,6 +97,8 @@ def create_table_self(table_name, table_info):
     # file_desc.close()
     tables_list.append(table_name)
     table_contents[table_name] = table_info
+    if row_major:
+        col_major = True
     lru_limit = table_row_major(table_info)
     return Response(status=200)
 
@@ -326,11 +329,11 @@ def check_col_exists(table_name, col_fam, col_name):
 def insert_a_cell(text):
     # import pdb; pdb.set_trace()
     # print(text)
-    # if text == "my_csv":
+    content = request.get_json()
+    # if text == "my_csv" and content['row'] == 525:
     #     pdb.set_trace()
     if text not in tables_list:
         return Response(status=404)
-    content = request.get_json()
     col_fam = content['column_family']
     if not check_col_fam_exists(text, col_fam):
         return Response(status=400)
@@ -341,7 +344,7 @@ def insert_a_cell(text):
 
 
 def find_a_row_memt(table, row_num):
-    # if table == "my_csv" and row_num == 612:
+    # if table == "my_csv" and row_num == 525:
     #     pdb.set_trace()
     result = list()
     global row_major, row_num_count, current_row
@@ -424,9 +427,47 @@ def find_col_exists(table_name, content):
     return True
 
 
+current_col = ""
+col_num_count = 1
+str_line_col = str
+
+
+def find_value_on_ss_index_col_maj(ss_index_val, row_name, col_name):
+    key_val = "sstable_" + str(ss_index_val)
+    ss_table_name = ss_index[key_val]
+    lines = [line.rstrip('\n') for line in open(ss_table_name)]
+    result = list()
+    strs = lines[0].split("||")
+    for each_line in strs:
+        if each_line != "":
+            data = json.loads(each_line)
+            if data['row'] == row_name and data['column'] == col_name:
+                return data
+
+
+def find_data_col_maj(text, row_name, col_name):
+
+    global col_num_count, current_col
+    global str_line_col
+    ss_index_val = 0
+    # check where the row exists: i.e. in
+    # which ss_table
+    for each_dict in in_memory_index:
+        for each_list in each_dict.values():
+            for each_entry in each_list:
+                str_line_col = each_entry.split("|")
+                if str_line_col[1] == str(row_name) and str_line_col[0] == text:
+                    result_list = find_value_on_ss_index_col_maj(ss_index_val, row_name, col_name)
+                    return result_list
+        ss_index_val += 1
+
+
 def get_row_from_mem_table_disk(text, content):
     row_name = content['row']
-    row = find_a_row_memt(text, row_name)
+    if col_major:
+        row = find_data_col_maj(text, row_name, content['column'])
+    else:
+        row = find_a_row_memt(text, row_name)
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
     # if text == "table_metadata":
@@ -498,7 +539,8 @@ def recover_from_md(table_name):
 
 @tablet_server.route('/api/table/<path:text>/cell', methods=['GET'])
 def retrieve_a_cell(text):
-    # if text == "my_csv":
+    content = request.get_json()
+    # if text == "my_csv" and content['row'] == 0 and col_major:
     #     pdb.set_trace()
     # recovery when mem table is 0 and tables list is empty
     # reasoning for these conditions for recovery is that
@@ -506,7 +548,6 @@ def retrieve_a_cell(text):
     # so attempt to recover data from the meta data and wal
     if len(mem_table) == 0 and len(tables_list) == 0:
         recovered = recover_from_md(text)
-    content = request.get_json()
     tbl_name = text
     if tbl_name not in tables_list:
         return Response(status=404)
