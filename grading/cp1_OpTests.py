@@ -318,7 +318,6 @@ class OpTests(unittest.TestCase):
             "column": "key1",
             "row": "row_0",
         }
-        # pdb.set_trace()
         response = requests.get(url, json=retrieve_single)
         expected = {
             "row": "row_0",
