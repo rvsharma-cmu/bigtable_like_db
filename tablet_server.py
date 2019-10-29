@@ -113,7 +113,6 @@ def create_table():
         if table_info is None:
             return Response(status=400)
         for server_name in tables_list:
-            # print(server_name)
             # return 409 if table already exists
             if table_info['name'] == server_name:
                 return Response(status=409)
@@ -257,7 +256,6 @@ def mem_table_spill(table_name, content):
     if len(mem_table) < mem_table_size:
         return
     spill(mem_table)
-    # pdb.set_trace()
     mem_table = list()
     table_spill_dict[mem_table_spill_counter] = this_spill_list
     this_spill_list = list()
@@ -324,35 +322,19 @@ def insert_a_cell(text):
     return add_row_to_mem_table(text, content)
 
 
-def find_a_row_memt(table, row_num):
+def find_a_row_memt(table, row_num, col_name):
     result = list()
-    global row_major, row_num_count, current_row
-    if len(current_row) == 0 and row_major:
-        current_row = str(row_num)
-    elif current_row != str(row_num) and row_major:
-        current_row = str(row_num)
-        row_num_count = 1
-    int_row_count = 1
+    global row_major
     for row in mem_table:
         if row['row'] == row_num and not row_major:
             result.append(row)
-        elif row['row'] == row_num and row_major:
-            if int_row_count != row_num_count:
-                int_row_count += 1
-                continue
-            else:
-                row_num_count += 1
-                return row
+        elif row['row'] == row_num and row_major and row['column'] == col_name:
+            return row
     return result
 
 
-def find_value_on_ss_index(ss_index_val, row_name, table):
-    global row_major, row_num_count, current_row
-    if len(current_row) == 0 and row_major:
-        current_row = str(row_name)
-    elif current_row != str(row_name) and row_major:
-        current_row = str(row_name)
-        row_num_count = 1
+def find_value_on_ss_index(ss_index_val, row_name, table, col_name):
+    global row_major
     key_val = "sstable_" + str(ss_index_val)
     ss_table_name = ss_index[key_val]
     int_row_count = 1
@@ -364,20 +346,15 @@ def find_value_on_ss_index(ss_index_val, row_name, table):
             data = json.loads(each_line)
             if data['row'] == row_name and not row_major:
                 result.append(data)
-            elif data['row'] == row_name and row_major:
-                if int_row_count != row_num_count:
-                    int_row_count += 1
-                    continue
-                else:
-                    row_num_count += 1
-                    return data
+            elif row_major and data['row'] == row_name and data['column'] == col_name:
+                return data
     return result
 
 
 str_line = str
 
 
-def find_a_row_on_disk(table, row_name):
+def find_a_row_on_disk(table, row_name, col_name):
     global str_line
     ss_index_val = 0
     # check where the row exists: i.e. in
@@ -387,7 +364,7 @@ def find_a_row_on_disk(table, row_name):
             for each_entry in each_list:
                 str_list = each_entry.split("|")
                 if str_list[1] == str(row_name) and str_list[0] == table:
-                    result_list = find_value_on_ss_index(ss_index_val, row_name, table)
+                    result_list = find_value_on_ss_index(ss_index_val, row_name, table, col_name)
                     return result_list
         ss_index_val += 1
 
@@ -438,17 +415,18 @@ def find_data_col_maj(text, row_name, col_name):
 
 def get_row_from_mem_table_disk(text, content):
     row_name = content['row']
+    col_name = content['column']
     if col_major:
-        row = find_data_col_maj(text, row_name, content['column'])
+        row = find_data_col_maj(text, row_name, col_name)
     else:
-        row = find_a_row_memt(text, row_name)
+        row = find_a_row_memt(text, row_name, col_name)
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
 
     # did not find on mem table- so search in ss index / table
     if len(row) == 0:
-        row = find_a_row_on_disk(text, row_name)
-    # import pdb; pdb.set_trace()
+        row = find_a_row_on_disk(text, row_name, col_name)
+
     data_key_list = list()
     if len(row) != 0:
         if type(row) == dict:

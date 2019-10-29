@@ -259,7 +259,7 @@ class OpTests(unittest.TestCase):
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_e"), False))
         self.assertTrue(next((item for item in received["data"] if item["value"] == "data_f"), False))
         self.assertFalse(next((item for item in received["data"] if item["value"] == "data_a"), False))
-        print("GARBAGE COLLECTION PASSED  !!!!!!!!!!!!!!!!!!!!")
+        print("GARBAGE COLLECTION PASSED!")
 
     def test_metadata(self):
         url = MySupport.url(self.HOSTNAME, self.PORT, "/api/table/table_metadata/cell")
