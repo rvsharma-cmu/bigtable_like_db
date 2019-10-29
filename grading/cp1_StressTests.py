@@ -26,7 +26,6 @@ class StressTests(unittest.TestCase):
         return suite
 
     def test_populate_data(self):
-        # pdb.set_trace()
         csv_file = os.path.join(os.getcwd(), "dataset/movies.csv")
         self.assertTrue(os.path.exists(csv_file))
 
@@ -115,7 +114,6 @@ class StressTests(unittest.TestCase):
                 self.assertEqual(response.json(), expected)
 
             row_id = row_id + 1
-        print("test_row succeeded")
 
     def test_cols(self):
         # Insert entries into the table in a column-major fashion
@@ -124,7 +122,7 @@ class StressTests(unittest.TestCase):
         url_insert =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
         url_retrieve =  MySupport.url(self.HOSTNAME, self.PORT, "/api/table/my_csv/cell")
 
-        pdb.set_trace()
+        # pdb.set_trace()
         for i in range(len(self.schema)):
             row_id = 0
             for data in self.csv_data:
