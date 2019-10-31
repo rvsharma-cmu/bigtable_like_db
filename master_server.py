@@ -88,12 +88,15 @@ def check_if_table_exists(table_name):
 
 
 def load_balance_tablet():
+    # pdb.set_trace()
+    collect_tables_from_tablets()
     length = sys.maxsize
     smallest_tablet = ""
     for each_tablet in tablet_table_dict.keys():
         this_len = len(tablet_table_dict[each_tablet])
         if this_len < length:
             smallest_tablet = each_tablet
+            length = this_len
     return smallest_tablet
 
 

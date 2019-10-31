@@ -234,12 +234,12 @@ def add_row_to_mem_table(table_name, content):
         update_lru_counter(content)
     if len(mem_table) == 0:
         mem_table.append(content)
-        this_spill_list.append(str(table_name + "|" + str(content['row'])))
+        this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
         return Response(status=200)
     elif len(mem_table) < mem_table_size:
         mem_table.append(content)
         sorted(mem_table, key=lambda x: (float(x["data"][0]["time"])))
-        this_spill_list.append(str(table_name + "|" + str(content['row'])))
+        this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
     elif len(mem_table) >= mem_table_size:
         mem_table_spill(table_name, content)
     return Response(status=200)
@@ -263,7 +263,7 @@ def mem_table_spill(table_name, content):
     in_memory_index.append(table_spill_dict)
     table_spill_dict = dict()
     mem_table.append(content)
-    this_spill_list.append(str(table_name + "|" + str(content['row'])))
+    this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
     mem_table_spill_counter += 1
 
 
@@ -363,7 +363,7 @@ def find_a_row_on_disk(table, row_name, col_name):
         for each_list in each_dict.values():
             for each_entry in each_list:
                 str_list = each_entry.split("|")
-                if str_list[1] == str(row_name) and str_list[0] == table:
+                if str_list[1] == str(row_name) and str_list[0] == table and str_list[2] == col_name:
                     result_list = find_value_on_ss_index(ss_index_val, row_name, table, col_name)
                     return result_list
         ss_index_val += 1
@@ -412,6 +412,8 @@ def find_data_col_maj(text, row_name, col_name):
 
 
 def get_row_from_mem_table_disk(text, content):
+    # if text == "movies":
+    #     pdb.set_trace()
     row_name = content['row']
     col_name = content['column']
     if col_major:
@@ -495,6 +497,8 @@ def retrieve_a_cell(text):
     if len(mem_table) == 0 and len(tables_list) == 0:
         recovered = recover_from_md(text)
     tbl_name = text
+    # if text == "movies":
+    #     pdb.set_trace()
     if tbl_name not in tables_list:
         return Response(status=404)
     else:
