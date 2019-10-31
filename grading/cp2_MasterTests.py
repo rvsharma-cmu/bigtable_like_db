@@ -19,6 +19,7 @@ class MasterTests(unittest.TestCase):
         return suite
 
     def test_use(self):
+        # pdb.set_trace()
         url_master =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/table1/")
 
         # getinfo - tablet hostname and port
@@ -67,6 +68,7 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(len(json["data"]), 1)
         self.assertEqual(json["data"][0]["value"], "data_a")
         self.assertEqual(json["data"][0]["time"], 1)
+        print("Master tests - test_use() passed!")
 
     def test_setup(self):
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
@@ -120,7 +122,6 @@ class MasterTests(unittest.TestCase):
         print("Master test - test_setup() passed!")
 
     def test_open_close(self):
-        pdb.set_trace()
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/lock/")
         url_nope = url + "tablenope"
         url_table = url + "table1"
@@ -145,7 +146,6 @@ class MasterTests(unittest.TestCase):
         data["client_id"] = "client2"
         response = requests.post(url_table, json=data)
         self.assertEqual(response.status_code, 200)
-
         # close - success
         response = requests.delete(url_table, json=data)
         self.assertEqual(response.status_code, 200)
@@ -157,8 +157,10 @@ class MasterTests(unittest.TestCase):
         # close - not exist
         response = requests.delete(url_nope, json=data)
         self.assertEqual(response.status_code, 404)
+        print("MasterTests test_open_close() passed!")
         
     def test_cleanup(self):
+        # pdb.set_trace()
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/")
         url_delete =  url + "table1"
         url_delete_nope =  url + "tablenope"
@@ -181,3 +183,4 @@ class MasterTests(unittest.TestCase):
         # remove - not exist
         response = requests.delete(url_delete_nope)
         self.assertEqual(response.status_code, 404)
+        print("master tests- test cleanup() passed")

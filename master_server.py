@@ -16,9 +16,10 @@ tablet_dict = dict()
 """
 tablet_table_dict = dict()
 """
-    list of tables in use
+    dict of tables in use where the key is table name and  
+    values are the client id who hold the lock 
 """
-open_list = set()
+open_list = dict()
 
 
 def collect_tables_from_tablets():
@@ -54,8 +55,11 @@ def master_list_tables():
         return response_send
 
 
-@master_server.route('/api/tables/<path:text>', methods=['GET'])
+@master_server.route('/api/tables/<path:text>/', methods=['GET'], strict_slashes=False)
+@master_server.route('/api/tables/<path:text>', methods=['GET'], strict_slashes=False)
 def get_particular_table_info(text):
+    # if text == "table1":
+        # pdb.set_trace()
     list_of_all_tables = collect_tables_from_tablets()
     if text not in list_of_all_tables:
         return Response(status=404)
@@ -64,7 +68,6 @@ def get_particular_table_info(text):
         if text in tablet_table_dict[each_tablet_key]:
             connect_url = "http://" + "localhost" + ":" + str(each_tablet_key) + "/api/tables/" + text
             response = requests.get(connect_url).content
-            # pdb.set_trace()
             otp = json.loads(response)
             tablet_list = list()
             tablet_info = dict()
@@ -103,6 +106,60 @@ def create_a_table_given_tablet(tablet_serv_key, content):
         return False
 
 
+@master_server.route('/api/lock/<path:text>', methods=['POST'])
+def lock_table(text):
+    # pdb.set_trace()
+    all_tables = collect_tables_from_tablets()
+    if text not in all_tables:
+        return Response(status=404)
+    content = request.get_json()
+    client_id = content['client_id']
+    if len(open_list) == 0:
+        new_set = set()
+        new_set.add(client_id)
+        open_list[text] = new_set
+        return Response(status=200)
+    else:
+        for each_table in open_list:
+            if text == each_table:
+                client_id_set = open_list[each_table]
+                if client_id in client_id_set:
+                    return Response(status=400)
+                else:
+                    client_id_set.add(client_id)
+                    open_list[each_table] = client_id_set
+                    return Response(status=200)
+            else:
+                new_set = set()
+                new_set.add(client_id)
+                open_list[text] = new_set
+                return Response(status=200)
+
+
+@master_server.route('/api/lock/<path:text>', methods=['DELETE'])
+def unlock_table(text):
+    # pdb.set_trace()
+    content = request.get_json()
+    client_id = content['client_id']
+    all_tables = collect_tables_from_tablets()
+    if text not in all_tables:
+        return Response(status=404)
+    # if there are no tables locked return 400 immediately
+    if len(open_list) == 0:
+        return Response(status=400)
+    # else find the client id and delete if it exists
+    for each_table in open_list:
+        # if client did not open the table
+        if client_id not in open_list[each_table]:
+            return Response(status=400)
+        else:
+            new_set = open_list[each_table]
+            new_set.remove(client_id)
+            if len(new_set) == 0:
+                del open_list[each_table]
+            return Response(status=200)
+
+
 @master_server.route('/api/tables', methods=['POST'])
 def master_create_a_table():
     content = request.get_json()
@@ -123,10 +180,11 @@ def master_create_a_table():
 
 @master_server.route('/api/tables/<path:text>', methods=['DELETE'])
 def table_delete(text):
+    # pdb.set_trace()
     list_of_tables = collect_tables_from_tablets()
     if text not in list_of_tables:
         return Response(status=404)
-    if text in open_list:
+    if text in open_list.keys():
         return Response(status=409)
     list_of_tablets = list()
     for each_tab in tablet_table_dict:
@@ -139,6 +197,7 @@ def table_delete(text):
             continue
         else:
             return Response(status=409)
+    return Response(status=200)
 
 
 lines = [line.rstrip('\n') for line in open('tablet.mk')]
