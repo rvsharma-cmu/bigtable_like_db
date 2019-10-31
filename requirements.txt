@@ -1,11 +1,2 @@
-# For setting up flask
-python3 -m venv /path/to/new/virtual/environment
-source ./bin/activate
-pip3 install flask
-
-# Tablet1 and Grade1
-# For running tablet server
-make tablet1
-
-# For running grading scripts
-make grade1
+requests
+flask

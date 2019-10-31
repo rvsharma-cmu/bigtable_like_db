@@ -1,8 +1,9 @@
 import requests, unittest, json
 from MySupport import MySupport
-
+import pdb
 from cp1_TableTests import TableTests
 from cp1_OpTests import OpTests
+
 
 class MasterTests(unittest.TestCase):
     HOSTNAME = "host"
@@ -77,7 +78,6 @@ class MasterTests(unittest.TestCase):
         json = response.json()
         expected = {"tables": []}
         self.assertEqual(json, expected)
-
         table_dict = {
                 "name": "table1",
                 "column_families": [
@@ -95,7 +95,6 @@ class MasterTests(unittest.TestCase):
         # create - success
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 200)
-
         # create - already exist
         response = requests.post(url, json=table_dict)
         self.assertEqual(response.status_code, 409)
@@ -110,7 +109,6 @@ class MasterTests(unittest.TestCase):
         response = requests.get(url)
         expected = {"tables": ["table1"]}
         self.assertEqual(response.json(), expected)
-
         # get table info
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/table1")
         response = requests.get(url)
@@ -119,8 +117,10 @@ class MasterTests(unittest.TestCase):
         tablet_info = response.json()
         self.assertEqual(tablet_info["name"], "table1")
         self.assertEqual(len(tablet_info["tablets"]), 1)
+        print("Master test - test_setup() passed!")
 
-    def test_open_close(self): 
+    def test_open_close(self):
+        pdb.set_trace()
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/api/lock/")
         url_nope = url + "tablenope"
         url_table = url + "table1"

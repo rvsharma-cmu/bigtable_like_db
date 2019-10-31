@@ -623,16 +623,12 @@ def set_mem_table_max_entries():
     return Response(status=200)
 
 
-tablet_server.run(host=sys.argv[1], port=sys.argv[2])
-# with is like your try .. finally block in this case
-with open('hosts.mk', 'r') as file:
-    # read a list of lines into data
-    data = file.readlines()
-
+with open('tablet.mk', 'a') as file:
+    string1 = str(socket.gethostname()) + "|"
+    string2 = str(sys.argv[2]) + "\n"
+    file.write(string1)
+    file.write(string2)
+    file.close()
+# print("length of data" + str(len_data))
 # now change the 2nd line, note that you have to add a newline
-data[8] = "TABLET_HOSTNAME=" + str(socket.gethostname()) + "\n"
-data[9] = "TABLET_PORT=" + str(sys.argv[2]) + "\n"
-print(socket.gethostname())
-# and write everything back
-with open('hosts.mk', 'w') as file:
-    file.writelines(data)
+tablet_server.run(host='0.0.0.0', port=sys.argv[2])
