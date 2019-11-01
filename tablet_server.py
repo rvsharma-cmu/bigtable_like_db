@@ -8,7 +8,7 @@ import os
 import socket
 
 tablet_server = flask.Flask(__name__)
-tablet_server.config["DEBUG"] = True
+tablet_server.config["DEBUG"] = False
 """ tablet to server name mapping
     This will list which tablet is 
     mapped to which server. 
@@ -327,7 +327,7 @@ def find_a_row_memt(table, row_num, col_name):
     result = list()
     global row_major
     for row in mem_table:
-        if row['row'] == row_num and not row_major:
+        if row['row'] == row_num and not row_major and row['column'] == col_name:
             result.append(row)
         elif row['row'] == row_num and row_major and row['column'] == col_name:
             return row
@@ -415,12 +415,18 @@ def find_data_col_maj(text, row_name, col_name):
 def get_row_from_mem_table_disk(text, content):
     # if text == "movies":
     #     pdb.set_trace()
+    global row_major
     row_name = content['row']
     col_name = content['column']
     if col_major:
         row = find_data_col_maj(text, row_name, col_name)
     else:
         row = find_a_row_memt(text, row_name, col_name)
+    if row is None:
+        row_major = False
+        row = find_a_row_memt(text, row_name, col_name)
+    if text == "table_rcvr" and row is None:
+        pdb.set_trace()
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
 

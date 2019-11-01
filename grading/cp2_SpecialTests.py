@@ -189,7 +189,7 @@ class SpecialTests(unittest.TestCase):
 
         # overflow the maximum number of rows in a memtable
         # to make recovery occur over spills
-        url_tablet = MySupport.url("localhost", tablet_port, "/api/table/table_rcvr/cell")
+        url_tablet = MySupport.url(tablet_hostname, tablet_port, "/api/table/table_rcvr/cell")
         for i in range(self.MEM_TABLE_LIMIT + self.EXTRA_ROWS):
             response = requests.post(url_tablet,
                                      json={
@@ -222,8 +222,8 @@ class SpecialTests(unittest.TestCase):
         new_tablet_port = new_tablet_info["tablets"][0]["port"]
 
         # self.assertNotEqual(tablet_hostname, new_tablet_hostname)
-        url_tablet = MySupport.url("localhost", new_tablet_port, "/api/table/table_rcvr/cell")
-        # pdb.set_trace()
+        url_tablet = MySupport.url(new_tablet_hostname, new_tablet_port, "/api/table/table_rcvr/cell")
+        pdb.set_trace()
         for i in range(self.MEM_TABLE_LIMIT + self.EXTRA_ROWS):
             request = {
                 "column_family": "fam1",
