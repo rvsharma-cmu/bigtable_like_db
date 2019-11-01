@@ -223,7 +223,7 @@ class SpecialTests(unittest.TestCase):
 
         # self.assertNotEqual(tablet_hostname, new_tablet_hostname)
         url_tablet = MySupport.url(new_tablet_hostname, new_tablet_port, "/api/table/table_rcvr/cell")
-        pdb.set_trace()
+        # pdb.set_trace()
         for i in range(self.MEM_TABLE_LIMIT + self.EXTRA_ROWS):
             request = {
                 "column_family": "fam1",
@@ -250,4 +250,4 @@ class SpecialTests(unittest.TestCase):
         self.assertFalse(response.content)
 
         print("Done with testing recovery.")
-        pdb.set_trace()
+        # pdb.set_trace()

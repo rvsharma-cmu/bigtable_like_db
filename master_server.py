@@ -75,8 +75,8 @@ def master_list_tables():
 @master_server.route('/api/tables/<path:text>/', methods=['GET'], strict_slashes=False)
 @master_server.route('/api/tables/<path:text>', methods=['GET'], strict_slashes=False)
 def get_particular_table_info(text):
-    if text == "table_rcvr":
-        pdb.set_trace()
+    # if text == "table_rcvr":
+        # pdb.set_trace()
     list_of_all_tables = collect_tables_from_tablets()
     if text not in list_of_all_tables:
         return Response(status=404)
