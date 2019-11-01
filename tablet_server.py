@@ -619,6 +619,11 @@ def retrieve_range_of_cells(text):
     return response
 
 
+@tablet_server.route('/api/tablethb', methods=['GET'])
+def send_heartbeat():
+    return Response(status=200)
+
+
 @tablet_server.route('/api/memtable', methods=['POST'])
 def set_mem_table_max_entries():
     global mem_table_size

@@ -1,9 +1,14 @@
+import copy
+
 import flask
 import requests
+import urllib3
 from flask import request, jsonify, Response
 import sys
 import pdb
 import json
+import threading
+import time
 
 master_server = flask.Flask(__name__)
 master_server.config["DEBUG"] = True
@@ -16,14 +21,22 @@ tablet_dict = dict()
 """
 tablet_table_dict = dict()
 """
+    copy of tablets 
+"""
+copy_tablet_table_dict = dict()
+"""
     dict of tables in use where the key is table name and  
     values are the client id who hold the lock 
 """
 open_list = dict()
+tablet_deleted_key = ""
+r = dict()
+'''list of tables that are to be recovered'''
+list_of_tabs = list()
 
 
 def collect_tables_from_tablets():
-    global tablet_table_dict
+    global tablet_table_dict, copy_tablet_table_dict
     tables_list = list()
     for each_tablet in tablet_dict.keys():
         url = "http://" + "localhost" + ":" + str(each_tablet) + "/api/tables"
@@ -31,6 +44,7 @@ def collect_tables_from_tablets():
         val = json.loads(response)
         list_of_tables = val['tables']
         tablet_table_dict[each_tablet] = list_of_tables
+        copy_tablet_table_dict[each_tablet] = list_of_tables
         for each_table in list_of_tables:
             tables_list.append(str(each_table))
     return tables_list
@@ -58,8 +72,8 @@ def master_list_tables():
 @master_server.route('/api/tables/<path:text>/', methods=['GET'], strict_slashes=False)
 @master_server.route('/api/tables/<path:text>', methods=['GET'], strict_slashes=False)
 def get_particular_table_info(text):
-    # if text == "table1":
-        # pdb.set_trace()
+    if text == "table_rcvr":
+        pdb.set_trace()
     list_of_all_tables = collect_tables_from_tablets()
     if text not in list_of_all_tables:
         return Response(status=404)
@@ -203,12 +217,80 @@ def table_delete(text):
     return Response(status=200)
 
 
-lines = [line.rstrip('\n') for line in open('tablet.mk')]
+def remove_tablet_server(each_tablet):
+    print("in remove tablet server")
+    global list_of_tabs
+    if each_tablet in tablet_dict.keys():
+        del tablet_dict[each_tablet]
+        print("copying list of tabs")
+        list_of_tabs = tablet_table_dict[each_tablet]
+        del tablet_table_dict[each_tablet]
 
-for each_l in lines:
-    for each_line in each_l:
-        strings = each_l.split("|")
-        if strings[1] not in tablet_dict.keys():
-            tablet_dict[strings[1]] = strings[0]
 
-master_server.run(host=sys.argv[1], port=sys.argv[2])
+def do_recovery(each_tablet):
+    print("in recovery")
+
+
+# def heartbeat():
+#     global tablet_table_dict, r, tablet_deleted_key
+#     timer = threading.Timer(5.0, heartbeat)
+#     timer.start()
+#     # pdb.set_trace()
+#     tables_list = list()
+#     for each_tablet in tablet_dict.keys():
+#         url = "http://" + "localhost" + ":" + str(each_tablet) + "/api/tablethb"
+#         try:
+#             r = requests.get(url)
+#         except requests.exceptions.ConnectionError:
+#             tablet_deleted_key = each_tablet
+#             remove_tablet_server(each_tablet)
+#             do_recovery(each_tablet)
+#         except urllib3.exceptions.NewConnectionError:
+#             print("excp handled")
+#         except urllib3.exceptions.MaxRetryError:
+#             print("excp handled")
+#         except ConnectionRefusedError:
+#             print("excp handled")
+#
+#         print("Response=")
+#         print(r)
+#         stat_code = r.status_code
+#         if stat_code == 200:
+#             print("Alive " + str(each_tablet))
+#         print(tablet_deleted_key)
+
+def heartbeat():
+    recovered = []
+    while True:
+        tablets_copy = copy.copy(tablet_dict)
+        for each_tablet in tablets_copy.keys():
+            url = "http://" + "localhost" + ":" + str(each_tablet) + "/api/tablethb"
+            try:
+                resp = requests.get(url)
+            except requests.exceptions.ConnectionError as e:
+                if each_tablet not in recovered:
+                    recovered.append(each_tablet)
+                    present_tables = [one_tablet_name for one_tablet_name in
+                                           tablet_dict if one_tablet_name != each_tablet]
+                    if len(present_tables):
+                        recovery_port = present_tables[0]
+                        recovery_url = "http://" + "localhost" + ":" + str(recovery_port) + "/api/recover"
+                        requests.get(recovery_url)
+        time.sleep(5)
+
+
+if __name__ == '__main__':
+    lines = [line.rstrip('\n') for line in open('tablet.mk')]
+
+    for each_l in lines:
+        for each_line in each_l:
+            strings = each_l.split("|")
+            if strings[1] not in tablet_dict.keys():
+                tablet_dict[strings[1]] = strings[0]
+
+    t = threading.Thread(target=heartbeat)
+    t.start()
+
+    master_server.run(host=sys.argv[1], port=sys.argv[2])
+
+
