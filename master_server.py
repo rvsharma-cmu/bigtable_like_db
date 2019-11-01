@@ -33,6 +33,9 @@ tablet_deleted_key = ""
 r = dict()
 '''list of tables that are to be recovered'''
 list_of_tabs = list()
+''' tablet table info '''
+tablet_table_info = dict()
+tables_information = {}
 
 
 def collect_tables_from_tablets():
@@ -180,6 +183,7 @@ def unlock_table(text):
 @master_server.route('/api/tables', methods=['POST'])
 def master_create_a_table():
     content = request.get_json()
+    # pdb.set_trace()
     if content is None:
         return Response(status=400)
     table_name = content['name']
@@ -187,9 +191,14 @@ def master_create_a_table():
         return Response(status=409)
     tablet_serv_key = load_balance_tablet()
     if create_a_table_given_tablet(tablet_serv_key, content):
+        tablet_list = list()
+        otp = content
         output_dict = dict()
         output_dict['hostname'] = tablet_dict[tablet_serv_key]
         output_dict['port'] = tablet_serv_key
+        tablet_list.append(output_dict)
+        otp["tablets"] = tablet_list
+        tablet_table_info[table_name] = otp
         response_value = jsonify(output_dict)
         response_value.status_code = 200
         return response_value
@@ -260,7 +269,8 @@ def do_recovery(each_tablet):
 #         print(tablet_deleted_key)
 
 def heartbeat():
-    recovered = []
+    global tables_information
+    list_of_recovered_tabs = []
     while True:
         tablets_copy = copy.copy(tablet_dict)
         for each_tablet in tablets_copy.keys():
@@ -268,14 +278,30 @@ def heartbeat():
             try:
                 resp = requests.get(url)
             except requests.exceptions.ConnectionError as e:
-                if each_tablet not in recovered:
-                    recovered.append(each_tablet)
+                if each_tablet not in list_of_recovered_tabs:
+                    print("stopped tablet" + each_tablet)
+                    for each_table in tablet_table_info.keys():
+                        if each_tablet == (tablet_table_info[each_table])["tablets"][0]["port"]:
+                            tables_information = tablet_table_info[each_table]
+                    list_of_recovered_tabs.append(each_tablet)
                     present_tables = [one_tablet_name for one_tablet_name in
-                                           tablet_dict if one_tablet_name != each_tablet]
+                                      tablet_dict if one_tablet_name != each_tablet]
                     if len(present_tables):
                         recovery_port = present_tables[0]
                         recovery_url = "http://" + "localhost" + ":" + str(recovery_port) + "/api/recover"
-                        requests.get(recovery_url)
+                        tables_information["tablets"][0]["port"] = recovery_port
+                        tables_information["tablets"][0]["hostname"] = tablet_dict[recovery_port]
+                        recover_info = {
+                            "tables_information": tables_information,
+                            "hostname": tablet_dict[recovery_port],
+                            "port": recovery_port
+                        }
+                        del tablet_dict[each_tablet]
+                        del tablet_table_dict[each_tablet]
+                        lst = tablet_table_dict[recovery_port]
+                        lst.append(tables_information['name'])
+                        tablet_table_dict[recovery_port] = lst
+                        requests.post(recovery_url, json=recover_info)
         time.sleep(5)
 
 
@@ -292,5 +318,3 @@ if __name__ == '__main__':
     t.start()
 
     master_server.run(host=sys.argv[1], port=sys.argv[2])
-
-

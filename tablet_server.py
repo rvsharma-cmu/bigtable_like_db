@@ -1,4 +1,5 @@
 import flask
+import requests
 from flask import request, jsonify, Response
 import json
 import pdb
@@ -624,6 +625,22 @@ def send_heartbeat():
     return Response(status=200)
 
 
+@tablet_server.route('/api/recover', methods=['POST'])
+def start_recovery():
+    content = request.get_json()
+    recovery_host = content['hostname']
+    recovery_port = content['port']
+    table_dict = content['tables_information']
+    table_create_url = "http://" + "localhost" + ":" + recovery_port + "/api/tables"
+    response = requests.post(table_create_url, json=table_dict)
+    table_name = table_dict['name']
+    recovered = recover_from_md(table_name)
+    if recovered:
+        return Response(status=200)
+    else:
+        return Response(status=400)
+
+
 @tablet_server.route('/api/memtable', methods=['POST'])
 def set_mem_table_max_entries():
     global mem_table_size
@@ -633,7 +650,8 @@ def set_mem_table_max_entries():
 
 
 with open('tablet.mk', 'a') as file:
-    string1 = str(socket.gethostname()) + "|"
+    ipaddress = socket.gethostbyname(socket.gethostname())
+    string1 = str(ipaddress) + "|"
     string2 = str(sys.argv[2]) + "\n"
     file.write(string1)
     file.write(string2)
