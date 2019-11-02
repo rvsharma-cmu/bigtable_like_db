@@ -3,7 +3,6 @@ import socket
 
 import flask
 import requests
-import urllib3
 from flask import request, jsonify, Response
 import sys
 import pdb
@@ -271,6 +270,15 @@ def master_create_a_table():
         return response_value
 
 
+@master_server.route('/api/updatetabletdetails', methods=['POST'])
+def tablet_details_update():
+    content = request.get_json()
+    tablet_ip = content['ipaddress']
+    tablet_port = content['port']
+    tablet_dict[tablet_port] = tablet_ip
+    return Response(status=200)
+
+
 @master_server.route('/api/tables/<path:text>', methods=['DELETE'])
 def table_delete(text):
     # pdb.set_trace()
@@ -349,14 +357,14 @@ ip_addr = ""
 if __name__ == '__main__':
     ipaddress = socket.gethostbyname(socket.gethostname())
     ip_addr = ipaddress
-    lines = [line.rstrip('\n') for line in open('tablet.mk')]
-
-    for each_l in lines:
-        for each_line in each_l:
-            strings = each_l.split("|")
-            if strings[1] not in tablet_dict.keys():
-                tablet_dict[strings[1]] = strings[0]
-
+    # lines = [line.rstrip('\n') for line in open('tablet.mk')]
+    #
+    # for each_l in lines:
+    #     for each_line in each_l:
+    #         strings = each_l.split("|")
+    #         if strings[1] not in tablet_dict.keys():
+    #             tablet_dict[strings[1]] = strings[0]
+    # update the master ip address in hosts.mk file
     lines = [line.rstrip('\n') for line in open('hosts.mk')]
     master_host_name = ""
     for each_l in lines:
@@ -374,7 +382,7 @@ if __name__ == '__main__':
 
     with open('hosts.mk', 'w') as file:
         file.writelines(data)
-
+    # start the worker thread
     t = threading.Thread(target=heartbeat)
     t.start()
 

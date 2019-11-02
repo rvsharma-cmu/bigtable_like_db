@@ -67,7 +67,6 @@ row_major = False
 col_major = False
 lru_limit = 5
 
-
 """
     sharding limit for rows 
 """
@@ -332,7 +331,6 @@ def check_col_exists(table_name, col_fam, col_name):
 
 
 def shard_tablet_server(table_name):
-
     with open('hosts.mk', 'r') as hosts_file:
         data = hosts_file.readlines()
     strings = data[0].split("=")
@@ -719,6 +717,8 @@ def set_mem_table_max_entries():
 
 
 """ api for sharding constant """
+
+
 @tablet_server.route('/api/sharding_limit', methods=['POST'])
 def set_sharding_limit():
     global sharding_limit
@@ -729,14 +729,25 @@ def set_sharding_limit():
 
 ipaddr = ""
 
-with open('tablet.mk', 'a') as file:
-    ipaddress = socket.gethostbyname(socket.gethostname())
-    ipaddr = ipaddress
-    string1 = str(ipaddress) + "|"
-    string2 = str(sys.argv[2]) + "\n"
-    file.write(string1)
-    file.write(string2)
-    file.close()
-# print("length of data" + str(len_data))
-# now change the 2nd line, note that you have to add a newline
-tablet_server.run(host=ipaddr, port=int(sys.argv[2]))
+if __name__ == '__main__':
+    tablet_ipaddress = socket.gethostbyname(socket.gethostname())
+    tablet_port_num = sys.argv[2]
+    tablet_information = {
+        "ipaddress": tablet_ipaddress,
+        "port": tablet_port_num
+    }
+    # get the master ip and port number
+    master_ipaddress = sys.argv[3]
+    master_portnum = sys.argv[4]
+    master_url = "http://" + master_ipaddress + ":" + master_portnum + "/api/updatetabletdetails"
+    requests.post(master_url, json=tablet_information)
+    with open('tablet.mk', 'a') as file:
+        ipaddr = tablet_ipaddress
+        string1 = str(tablet_ipaddress) + "|"
+        string2 = str(sys.argv[2]) + "\n"
+        file.write(string1)
+        file.write(string2)
+        file.close()
+    # print("length of data" + str(len_data))
+    # now change the 2nd line, note that you have to add a newline
+    tablet_server.run(host=ipaddr, port=int(sys.argv[2]))
