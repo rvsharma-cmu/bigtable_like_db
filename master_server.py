@@ -357,14 +357,7 @@ ip_addr = ""
 if __name__ == '__main__':
     ipaddress = socket.gethostbyname(socket.gethostname())
     ip_addr = ipaddress
-    # lines = [line.rstrip('\n') for line in open('tablet.mk')]
-    #
-    # for each_l in lines:
-    #     for each_line in each_l:
-    #         strings = each_l.split("|")
-    #         if strings[1] not in tablet_dict.keys():
-    #             tablet_dict[strings[1]] = strings[0]
-    # update the master ip address in hosts.mk file
+
     lines = [line.rstrip('\n') for line in open('hosts.mk')]
     master_host_name = ""
     for each_l in lines:

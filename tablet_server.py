@@ -741,13 +741,32 @@ if __name__ == '__main__':
     master_portnum = sys.argv[4]
     master_url = "http://" + master_ipaddress + ":" + master_portnum + "/api/updatetabletdetails"
     requests.post(master_url, json=tablet_information)
-    with open('tablet.mk', 'a') as file:
-        ipaddr = tablet_ipaddress
-        string1 = str(tablet_ipaddress) + "|"
-        string2 = str(sys.argv[2]) + "\n"
-        file.write(string1)
-        file.write(string2)
-        file.close()
+    ipaddr = tablet_ipaddress
+    lines = [line.rstrip('\n') for line in open('hosts.mk')]
+    tablet_host_name = ""
+    index = 0
+    if tablet_port_num == "19192":
+        tablet_host_name = "TABLET1_HOSTNAME"
+    elif tablet_port_num == "19193":
+        tablet_host_name = "TABLET2_HOSTNAME"
+    elif tablet_host_name == "19194":
+        tablet_host_name = "TABLET3_HOSTNAME"
+    for each_l in lines:
+        for each_line in each_l:
+            strin = each_l.split("=")
+            if strin[0] == tablet_host_name:
+                strin[1] = ipaddr
+                tablet_host_name = strin[0] + "=" + strin[1] + "\n"
+                break
+            index += 1
+
+    with open('hosts.mk', 'r') as file:
+        data = file.readlines()
+
+    data[index + 1] = tablet_host_name
+
+    with open('hosts.mk', 'w') as file:
+        file.writelines(data)
     # print("length of data" + str(len_data))
     # now change the 2nd line, note that you have to add a newline
     tablet_server.run(host=ipaddr, port=int(sys.argv[2]))
