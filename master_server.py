@@ -335,7 +335,7 @@ def heartbeat():
                                       tablet_dict if one_tablet_name != each_tablet]
                     if len(present_tables):
                         recovery_port = present_tables[0]
-                        recovery_url = "http://" + tablets_copy[each_tablet] + ":" + str(recovery_port) + "/api/recover"
+                        recovery_url = "http://" + tablets_copy[recovery_port] + ":" + str(recovery_port) + "/api/recover"
                         tables_information["tablets"][0]["port"] = recovery_port
                         tables_information["tablets"][0]["hostname"] = tablet_dict[recovery_port]
                         recover_info = {
