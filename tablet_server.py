@@ -749,7 +749,7 @@ if __name__ == '__main__':
         tablet_host_name = "TABLET1_HOSTNAME"
     elif tablet_port_num == "19193":
         tablet_host_name = "TABLET2_HOSTNAME"
-    elif tablet_host_name == "19194":
+    elif tablet_port_num == "19194":
         tablet_host_name = "TABLET3_HOSTNAME"
     for each_l in lines:
         for each_line in each_l:
@@ -763,7 +763,7 @@ if __name__ == '__main__':
     with open('hosts.mk', 'r') as file:
         data = file.readlines()
 
-    data[index + 1] = tablet_host_name
+    data[index] = tablet_host_name
 
     with open('hosts.mk', 'w') as file:
         file.writelines(data)
