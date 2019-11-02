@@ -37,11 +37,11 @@ class SpecialTests(unittest.TestCase):
                 }
             ]
         }
-
+        # create table through master
         response = requests.post(url_master, json=table_dict)
         self.assertEqual(response.status_code, 200)
 
-        # getinfo - tablet hostname and port
+        # getinfo - tablet hostname and port from master
         response = requests.get(url_master + "/table_shard")
         self.assertEqual(response.status_code, 200)
 
@@ -86,10 +86,8 @@ class SpecialTests(unittest.TestCase):
             'hostname': tablet_info["tablets"][1]["hostname"],
             'port': tablet_info["tablets"][1]["port"]
         }
-
         # The two tablets should be different
         self.assertNotEqual(tablet1, tablet2)
-
         tablet1['row_from'] = str(tablet_info["tablets"][0]["row_from"])
         tablet1['row_to'] = str(tablet_info["tablets"][0]["row_to"])
 
@@ -102,6 +100,7 @@ class SpecialTests(unittest.TestCase):
         tablet_right = None
         divider_row = str(self.MAX_UNIQUE_ROWS // 2)
 
+        pdb.set_trace()
         if tablet1['row_from'] == divider_row:
             match_found = True
             tablet_left = tablet2
@@ -154,6 +153,7 @@ class SpecialTests(unittest.TestCase):
         response = requests.delete(url_master + "/table_shard")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.content)
+        print("SpecialTests - test_shard() passed successfully!")
 
     def test_recovery(self):
         url_master = MySupport.url(self.HOSTNAME, self.PORT, "/api/tables")
@@ -206,7 +206,7 @@ class SpecialTests(unittest.TestCase):
         input()
 
         print("Going to sleep for 1 minute for recovery to complete.")
-        time.sleep(60)
+        time.sleep(20)
 
         print("Woken up from sleep. Continuing to read data.")
 

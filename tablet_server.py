@@ -66,8 +66,23 @@ metadata_exists = set()
 row_major = False
 col_major = False
 lru_limit = 5
-row_num_count = 1
-current_row = ""
+
+
+"""
+    sharding limit for rows 
+"""
+sharding_limit = 1000
+
+''' counter for number of rows in one table '''
+table_rows_count = {}
+
+''' row_from for this tablet server '''
+row_from = {}
+
+''' row_to for this tablet server against table name'''
+row_to = {}
+"""max int """
+maximum = sys.maxsize
 
 
 def table_row_major(table_info):
@@ -93,8 +108,8 @@ def create_table_self(table_name, table_info):
 
     tables_list.append(table_name)
     table_contents[table_name] = table_info
-    if row_major:
-        col_major = True
+    # if row_major:
+    #     col_major = True
     lru_limit = table_row_major(table_info)
     return Response(status=200)
 
@@ -151,6 +166,14 @@ def list_tables():
         output = jsonify(response)
         output.status_code = 200
         return output
+
+
+@tablet_server.route('/api/shard/copyinmem', methods=['POST'])
+def copyinmem():
+    content = request.get_json()
+    global in_memory_index
+    in_memory_index = content['in_mem_index']
+    return Response(status=200)
 
 
 """
@@ -308,10 +331,42 @@ def check_col_exists(table_name, col_fam, col_name):
     return found
 
 
+def shard_tablet_server(table_name):
+
+    with open('hosts.mk', 'r') as hosts_file:
+        data = hosts_file.readlines()
+    strings = data[0].split("=")
+    master_hostname = strings[1][:-1]
+    master_port = (data[1].split("="))[1]
+    master_url = "http://" + master_hostname + ":" + master_port + "/api/shard/shardtab/" + sys.argv[2]
+    response = requests.get(master_url)
+    content = response.json()
+    shard_tab_ip = content['shard_hostname']
+    shard_tab_port = content['shard_port']
+    # pdb.set_trace()
+    output_dict = {'in_mem_index': in_memory_index}
+    # in_mem_json = json.dumps(in_memory_index)
+    table_rows_count[table_name] -= 500
+    table_dict = table_contents[table_name]
+    table_create_url = "http://" + shard_tab_ip + ":" + shard_tab_port + "/api/tables"
+    response = requests.post(table_create_url, json=table_dict)
+    shard_tab_url = "http://" + shard_tab_ip + ":" + shard_tab_port + "/api/shard/copyinmem"
+    response = requests.post(shard_tab_url, json=output_dict)
+    sharded_information = {
+        "tablet_key": shard_tab_port,
+        "table_name": table_name,
+        "row_from_dest": 0,
+        "row_to_dest": sharding_limit // 2,
+        "row_from_orig": sharding_limit // 2,
+        "row_to_orig": maximum
+    }
+    requests.post(master_url, json=sharded_information)
+
+
 @tablet_server.route('/api/table/<path:text>/cell', methods=['POST'])
 def insert_a_cell(text):
     content = request.get_json()
-
+    global table_rows_count
     if text not in tables_list:
         return Response(status=404)
     col_fam = content['column_family']
@@ -320,6 +375,12 @@ def insert_a_cell(text):
     col = content['column']
     if not check_col_exists(text, col_fam, col):
         return Response(status=400)
+    if text not in table_rows_count.keys():
+        table_rows_count[text] = 1
+    else:
+        table_rows_count[text] += 1
+    if not row_major and table_rows_count[text] >= sharding_limit:
+        shard_tablet_server(text)
     return add_row_to_mem_table(text, content)
 
 
@@ -360,6 +421,8 @@ def find_a_row_on_disk(table, row_name, col_name):
     ss_index_val = 0
     # check where the row exists: i.e. in
     # which ss_table
+    # if table == "table_shard":
+    #     pdb.set_trace()
     for each_dict in in_memory_index:
         for each_list in each_dict.values():
             for each_entry in each_list:
@@ -425,8 +488,8 @@ def get_row_from_mem_table_disk(text, content):
     if row is None:
         row_major = False
         row = find_a_row_memt(text, row_name, col_name)
-    if text == "table_rcvr" and row is None:
-        pdb.set_trace()
+    # if text == "table_rcvr" and row is None:
+    #     pdb.set_trace()
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
 
@@ -637,7 +700,7 @@ def start_recovery():
     recovery_host = content['hostname']
     recovery_port = content['port']
     table_dict = content['tables_information']
-    table_create_url = "http://" + "localhost" + ":" + recovery_port + "/api/tables"
+    table_create_url = "http://" + recovery_host + ":" + recovery_port + "/api/tables"
     response = requests.post(table_create_url, json=table_dict)
     table_name = table_dict['name']
     recovered = recover_from_md(table_name)
@@ -655,8 +718,20 @@ def set_mem_table_max_entries():
     return Response(status=200)
 
 
+""" api for sharding constant """
+@tablet_server.route('/api/sharding_limit', methods=['POST'])
+def set_sharding_limit():
+    global sharding_limit
+    content = request.get_json()
+    sharding_limit = content['sharding_limit']
+    return Response(status=200)
+
+
+ipaddr = ""
+
 with open('tablet.mk', 'a') as file:
     ipaddress = socket.gethostbyname(socket.gethostname())
+    ipaddr = ipaddress
     string1 = str(ipaddress) + "|"
     string2 = str(sys.argv[2]) + "\n"
     file.write(string1)
@@ -664,4 +739,4 @@ with open('tablet.mk', 'a') as file:
     file.close()
 # print("length of data" + str(len_data))
 # now change the 2nd line, note that you have to add a newline
-tablet_server.run(host='0.0.0.0', port=sys.argv[2])
+tablet_server.run(host=ipaddr, port=int(sys.argv[2]))

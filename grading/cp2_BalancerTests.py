@@ -27,10 +27,10 @@ class BalancerTests(unittest.TestCase):
         return suite
 
     def test_populate_data(self):
-        movie_file = os.path.join(os.getcwd(), "../dataset/movies.csv")
+        movie_file = os.path.join(os.getcwd(), "dataset/movies.csv")
         self.assertTrue(os.path.exists(movie_file))
 
-        camera_file = os.path.join(os.getcwd(), "../dataset/camera.csv")
+        camera_file = os.path.join(os.getcwd(), "dataset/camera.csv")
         self.assertTrue(os.path.exists(camera_file))
 
         # Read in the movies data
