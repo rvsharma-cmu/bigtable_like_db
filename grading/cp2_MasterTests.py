@@ -19,7 +19,6 @@ class MasterTests(unittest.TestCase):
         return suite
 
     def test_use(self):
-        # pdb.set_trace()
         url_master =  MySupport.url(self.HOSTNAME, self.PORT, "/api/tables/table1/")
 
         # getinfo - tablet hostname and port

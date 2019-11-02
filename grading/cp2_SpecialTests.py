@@ -100,7 +100,6 @@ class SpecialTests(unittest.TestCase):
         tablet_right = None
         divider_row = str(self.MAX_UNIQUE_ROWS // 2)
 
-        pdb.set_trace()
         if tablet1['row_from'] == divider_row:
             match_found = True
             tablet_left = tablet2
