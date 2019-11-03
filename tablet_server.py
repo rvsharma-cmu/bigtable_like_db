@@ -1,4 +1,5 @@
 import flask
+import requests
 from flask import request, jsonify, Response
 import json
 import pdb
@@ -7,7 +8,7 @@ import os
 import socket
 
 tablet_server = flask.Flask(__name__)
-tablet_server.config["DEBUG"] = True
+tablet_server.config["DEBUG"] = False
 """ tablet to server name mapping
     This will list which tablet is 
     mapped to which server. 
@@ -65,8 +66,22 @@ metadata_exists = set()
 row_major = False
 col_major = False
 lru_limit = 5
-row_num_count = 1
-current_row = ""
+
+"""
+    sharding limit for rows 
+"""
+sharding_limit = 1000
+
+''' counter for number of rows in one table '''
+table_rows_count = {}
+
+''' row_from for this tablet server '''
+row_from = {}
+
+''' row_to for this tablet server against table name'''
+row_to = {}
+"""max int """
+maximum = sys.maxsize
 
 
 def table_row_major(table_info):
@@ -92,8 +107,8 @@ def create_table_self(table_name, table_info):
 
     tables_list.append(table_name)
     table_contents[table_name] = table_info
-    if row_major:
-        col_major = True
+    # if row_major:
+    #     col_major = True
     lru_limit = table_row_major(table_info)
     return Response(status=200)
 
@@ -150,6 +165,14 @@ def list_tables():
         output = jsonify(response)
         output.status_code = 200
         return output
+
+
+@tablet_server.route('/api/shard/copyinmem', methods=['POST'])
+def copyinmem():
+    content = request.get_json()
+    global in_memory_index
+    in_memory_index = content['in_mem_index']
+    return Response(status=200)
 
 
 """
@@ -234,12 +257,12 @@ def add_row_to_mem_table(table_name, content):
         update_lru_counter(content)
     if len(mem_table) == 0:
         mem_table.append(content)
-        this_spill_list.append(str(table_name + "|" + str(content['row'])))
+        this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
         return Response(status=200)
     elif len(mem_table) < mem_table_size:
         mem_table.append(content)
         sorted(mem_table, key=lambda x: (float(x["data"][0]["time"])))
-        this_spill_list.append(str(table_name + "|" + str(content['row'])))
+        this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
     elif len(mem_table) >= mem_table_size:
         mem_table_spill(table_name, content)
     return Response(status=200)
@@ -263,7 +286,7 @@ def mem_table_spill(table_name, content):
     in_memory_index.append(table_spill_dict)
     table_spill_dict = dict()
     mem_table.append(content)
-    this_spill_list.append(str(table_name + "|" + str(content['row'])))
+    this_spill_list.append(str(table_name + "|" + str(content['row']) + "|" + str(content['column'])))
     mem_table_spill_counter += 1
 
 
@@ -307,10 +330,41 @@ def check_col_exists(table_name, col_fam, col_name):
     return found
 
 
+def shard_tablet_server(table_name):
+    with open('hosts.mk', 'r') as hosts_file:
+        data = hosts_file.readlines()
+    strings = data[0].split("=")
+    master_hostname = strings[1][:-1]
+    master_port = (data[1].split("="))[1]
+    master_url = "http://" + master_hostname + ":" + master_port + "/api/shard/shardtab/" + sys.argv[2]
+    response = requests.get(master_url)
+    content = response.json()
+    shard_tab_ip = content['shard_hostname']
+    shard_tab_port = content['shard_port']
+    # pdb.set_trace()
+    output_dict = {'in_mem_index': in_memory_index}
+    # in_mem_json = json.dumps(in_memory_index)
+    table_rows_count[table_name] -= 500
+    table_dict = table_contents[table_name]
+    table_create_url = "http://" + shard_tab_ip + ":" + shard_tab_port + "/api/tables"
+    response = requests.post(table_create_url, json=table_dict)
+    shard_tab_url = "http://" + shard_tab_ip + ":" + shard_tab_port + "/api/shard/copyinmem"
+    response = requests.post(shard_tab_url, json=output_dict)
+    sharded_information = {
+        "tablet_key": shard_tab_port,
+        "table_name": table_name,
+        "row_from_dest": 0,
+        "row_to_dest": sharding_limit // 2,
+        "row_from_orig": sharding_limit // 2,
+        "row_to_orig": maximum
+    }
+    requests.post(master_url, json=sharded_information)
+
+
 @tablet_server.route('/api/table/<path:text>/cell', methods=['POST'])
 def insert_a_cell(text):
     content = request.get_json()
-
+    global table_rows_count
     if text not in tables_list:
         return Response(status=404)
     col_fam = content['column_family']
@@ -319,6 +373,12 @@ def insert_a_cell(text):
     col = content['column']
     if not check_col_exists(text, col_fam, col):
         return Response(status=400)
+    if text not in table_rows_count.keys():
+        table_rows_count[text] = 1
+    else:
+        table_rows_count[text] += 1
+    if not row_major and table_rows_count[text] >= sharding_limit:
+        shard_tablet_server(text)
     return add_row_to_mem_table(text, content)
 
 
@@ -326,7 +386,7 @@ def find_a_row_memt(table, row_num, col_name):
     result = list()
     global row_major
     for row in mem_table:
-        if row['row'] == row_num and not row_major:
+        if row['row'] == row_num and not row_major and row['column'] == col_name:
             result.append(row)
         elif row['row'] == row_num and row_major and row['column'] == col_name:
             return row
@@ -359,11 +419,13 @@ def find_a_row_on_disk(table, row_name, col_name):
     ss_index_val = 0
     # check where the row exists: i.e. in
     # which ss_table
+    # if table == "table_shard":
+    #     pdb.set_trace()
     for each_dict in in_memory_index:
         for each_list in each_dict.values():
             for each_entry in each_list:
                 str_list = each_entry.split("|")
-                if str_list[1] == str(row_name) and str_list[0] == table:
+                if str_list[1] == str(row_name) and str_list[0] == table and str_list[2] == col_name:
                     result_list = find_value_on_ss_index(ss_index_val, row_name, table, col_name)
                     return result_list
         ss_index_val += 1
@@ -412,12 +474,20 @@ def find_data_col_maj(text, row_name, col_name):
 
 
 def get_row_from_mem_table_disk(text, content):
+    # if text == "movies":
+    #     pdb.set_trace()
+    global row_major
     row_name = content['row']
     col_name = content['column']
     if col_major:
         row = find_data_col_maj(text, row_name, col_name)
     else:
         row = find_a_row_memt(text, row_name, col_name)
+    if row is None:
+        row_major = False
+        row = find_a_row_memt(text, row_name, col_name)
+    # if text == "table_rcvr" and row is None:
+    #     pdb.set_trace()
     if len(row) == 0 and not find_col_exists(text, content):
         return Response(status=400)
 
@@ -495,6 +565,8 @@ def retrieve_a_cell(text):
     if len(mem_table) == 0 and len(tables_list) == 0:
         recovered = recover_from_md(text)
     tbl_name = text
+    # if text == "movies":
+    #     pdb.set_trace()
     if tbl_name not in tables_list:
         return Response(status=404)
     else:
@@ -615,6 +687,27 @@ def retrieve_range_of_cells(text):
     return response
 
 
+@tablet_server.route('/api/tablethb', methods=['GET'])
+def send_heartbeat():
+    return Response(status=200)
+
+
+@tablet_server.route('/api/recover', methods=['POST'])
+def start_recovery():
+    content = request.get_json()
+    recovery_host = content['hostname']
+    recovery_port = content['port']
+    table_dict = content['tables_information']
+    table_create_url = "http://" + recovery_host + ":" + recovery_port + "/api/tables"
+    response = requests.post(table_create_url, json=table_dict)
+    table_name = table_dict['name']
+    recovered = recover_from_md(table_name)
+    if recovered:
+        return Response(status=200)
+    else:
+        return Response(status=400)
+
+
 @tablet_server.route('/api/memtable', methods=['POST'])
 def set_mem_table_max_entries():
     global mem_table_size
@@ -623,16 +716,57 @@ def set_mem_table_max_entries():
     return Response(status=200)
 
 
-tablet_server.run(host=sys.argv[1], port=sys.argv[2])
-# with is like your try .. finally block in this case
-with open('hosts.mk', 'r') as file:
-    # read a list of lines into data
-    data = file.readlines()
+""" api for sharding constant """
 
-# now change the 2nd line, note that you have to add a newline
-data[8] = "TABLET_HOSTNAME=" + str(socket.gethostname()) + "\n"
-data[9] = "TABLET_PORT=" + str(sys.argv[2]) + "\n"
-print(socket.gethostname())
-# and write everything back
-with open('hosts.mk', 'w') as file:
-    file.writelines(data)
+
+@tablet_server.route('/api/sharding_limit', methods=['POST'])
+def set_sharding_limit():
+    global sharding_limit
+    content = request.get_json()
+    sharding_limit = content['sharding_limit']
+    return Response(status=200)
+
+
+ipaddr = ""
+
+if __name__ == '__main__':
+    tablet_ipaddress = socket.gethostbyname(socket.gethostname())
+    tablet_port_num = sys.argv[2]
+    tablet_information = {
+        "ipaddress": tablet_ipaddress,
+        "port": tablet_port_num
+    }
+    # get the master ip and port number
+    master_ipaddress = sys.argv[3]
+    master_portnum = sys.argv[4]
+    master_url = "http://" + master_ipaddress + ":" + master_portnum + "/api/updatetabletdetails"
+    requests.post(master_url, json=tablet_information)
+    ipaddr = tablet_ipaddress
+    lines = [line.rstrip('\n') for line in open('hosts.mk')]
+    tablet_host_name = ""
+    index = 0
+    if tablet_port_num == "19192":
+        tablet_host_name = "TABLET1_HOSTNAME"
+    elif tablet_port_num == "19193":
+        tablet_host_name = "TABLET2_HOSTNAME"
+    elif tablet_port_num == "19194":
+        tablet_host_name = "TABLET3_HOSTNAME"
+    for each_l in lines:
+        for each_line in each_l:
+            strin = each_l.split("=")
+            if strin[0] == tablet_host_name:
+                strin[1] = ipaddr
+                tablet_host_name = strin[0] + "=" + strin[1] + "\n"
+                break
+            index += 1
+
+    with open('hosts.mk', 'r') as file:
+        data = file.readlines()
+
+    data[index] = tablet_host_name
+
+    with open('hosts.mk', 'w') as file:
+        file.writelines(data)
+    # print("length of data" + str(len_data))
+    # now change the 2nd line, note that you have to add a newline
+    tablet_server.run(host=ipaddr, port=int(sys.argv[2]))
